@@ -31,10 +31,11 @@ export function ObjectCard({ object, warnings, onClick }: ObjectCardProps) {
           <span className="truncate">{object.name}</span>
           {objectWarnings.length > 0 && (
             <span
-              className="shrink-0 text-amber-400"
+              className="flex shrink-0 items-center gap-0.5 text-amber-400"
               title={`${objectWarnings.length} warning${objectWarnings.length === 1 ? '' : 's'}`}
             >
-              ⚠
+              <span>⚠</span>
+              <span className="text-xs font-medium tabular-nums">{objectWarnings.length}</span>
             </span>
           )}
         </h3>
