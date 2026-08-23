@@ -71,7 +71,7 @@ export default function App() {
         onAnalyze={handleAnalyze}
       />
 
-      <div className="mx-auto flex max-w-7xl gap-8 px-6 py-8">
+      <div className="mx-auto flex max-w-[96rem] gap-8 px-6 py-8">
         {catalogue && catalogue.objects.length > 0 && (
           <Sidebar
             groups={groups}

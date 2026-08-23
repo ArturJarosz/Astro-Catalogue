@@ -24,7 +24,7 @@ export function ObjectCard({ object, warnings, onClick }: ObjectCardProps) {
           onClick()
         }
       }}
-      className="cursor-pointer rounded-lg border border-white/10 bg-white/[0.03] p-3 shadow-sm transition hover:border-white/20 hover:bg-white/[0.05]"
+      className="cursor-pointer rounded-lg border border-white/20 bg-slate-800 p-3 shadow-md transition hover:border-white/30 hover:bg-slate-700"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-slate-100">
@@ -42,7 +42,7 @@ export function ObjectCard({ object, warnings, onClick }: ObjectCardProps) {
             </span>
           )}
         </h3>
-        <span className="shrink-0 text-[11px] tabular-nums text-slate-500">
+        <span className="shrink-0 text-[11px] font-bold tabular-nums text-white">
           {grandTotalFrames} frames · {formatExposure(grandTotalExposure)}
         </span>
       </div>
