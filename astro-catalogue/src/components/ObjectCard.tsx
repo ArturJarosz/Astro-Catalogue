@@ -1,14 +1,17 @@
-import type { ObjectInfo } from '../../electron/shared-types'
+import type { ObjectInfo, WarningInfo } from '../../electron/shared-types'
 import { formatExposure } from '../lib/format'
+import { getObjectWarnings } from '../lib/warnings'
 
 interface ObjectCardProps {
   object: ObjectInfo
+  warnings: WarningInfo[]
   onClick: () => void
 }
 
-export function ObjectCard({ object, onClick }: ObjectCardProps) {
+export function ObjectCard({ object, warnings, onClick }: ObjectCardProps) {
   const grandTotalFrames = object.frameTypes.reduce((sum, ft) => sum + ft.totalFrames, 0)
   const grandTotalExposure = object.frameTypes.reduce((sum, ft) => sum + ft.totalExposureSeconds, 0)
+  const objectWarnings = getObjectWarnings(object, warnings)
 
   return (
     <div
@@ -24,7 +27,17 @@ export function ObjectCard({ object, onClick }: ObjectCardProps) {
       className="cursor-pointer rounded-lg border border-white/10 bg-white/[0.03] p-3 shadow-sm transition hover:border-white/20 hover:bg-white/[0.05]"
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="text-sm font-semibold text-slate-100">{object.name}</h3>
+        <h3 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-slate-100">
+          <span className="truncate">{object.name}</span>
+          {objectWarnings.length > 0 && (
+            <span
+              className="shrink-0 text-amber-400"
+              title={`${objectWarnings.length} warning${objectWarnings.length === 1 ? '' : 's'}`}
+            >
+              ⚠
+            </span>
+          )}
+        </h3>
         {object.isMosaic && (
           <span className="shrink-0 rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
             Mosaic

@@ -1,15 +1,18 @@
 import { useEffect, useState } from 'react'
-import type { ObjectInfo, ObjectSummary } from '../../electron/shared-types'
+import type { ObjectInfo, ObjectSummary, WarningInfo } from '../../electron/shared-types'
 import { formatExposure } from '../lib/format'
+import { getObjectWarnings } from '../lib/warnings'
 
 interface ObjectDetailModalProps {
   object: ObjectInfo
+  warnings: WarningInfo[]
   onClose: () => void
 }
 
-export function ObjectDetailModal({ object, onClose }: ObjectDetailModalProps) {
+export function ObjectDetailModal({ object, warnings, onClose }: ObjectDetailModalProps) {
   const [summary, setSummary] = useState<ObjectSummary | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(true)
+  const objectWarnings = getObjectWarnings(object, warnings)
 
   useEffect(() => {
     let cancelled = false
@@ -45,6 +48,14 @@ export function ObjectDetailModal({ object, onClose }: ObjectDetailModalProps) {
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
           <div className="flex items-center gap-2">
             <h2 className="text-lg font-semibold text-slate-100">{object.name}</h2>
+            {objectWarnings.length > 0 && (
+              <span
+                className="text-amber-400"
+                title={`${objectWarnings.length} warning${objectWarnings.length === 1 ? '' : 's'}`}
+              >
+                ⚠
+              </span>
+            )}
             {object.isMosaic && (
               <span className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
                 Mosaic
@@ -124,6 +135,23 @@ export function ObjectDetailModal({ object, onClose }: ObjectDetailModalProps) {
                   </div>
                 </div>
               ))
+            )}
+
+            {objectWarnings.length > 0 && (
+              <div>
+                <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-amber-300">
+                  <span>⚠</span>
+                  Warnings ({objectWarnings.length})
+                </h3>
+                <ul className="space-y-1.5 rounded-md border border-amber-400/20 bg-amber-400/5 px-3 py-2 text-xs">
+                  {objectWarnings.map((w, i) => (
+                    <li key={i} className="font-mono">
+                      <span className="text-amber-400">{w.path}</span>
+                      <span className="text-amber-200/70"> — {w.message}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
             )}
           </div>
         </div>

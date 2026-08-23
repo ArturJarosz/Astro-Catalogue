@@ -109,7 +109,12 @@ export default function App() {
                   </h2>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {group.objects.map((object) => (
-                      <ObjectCard key={object.path} object={object} onClick={() => setSelectedObject(object)} />
+                      <ObjectCard
+                        key={object.path}
+                        object={object}
+                        warnings={catalogue.warnings}
+                        onClick={() => setSelectedObject(object)}
+                      />
                     ))}
                   </div>
                 </section>
@@ -119,10 +124,11 @@ export default function App() {
         </main>
       </div>
 
-      {selectedObject && (
+      {selectedObject && catalogue && (
         <ObjectDetailModal
           key={selectedObject.path}
           object={selectedObject}
+          warnings={catalogue.warnings}
           onClose={() => setSelectedObject(null)}
         />
       )}
