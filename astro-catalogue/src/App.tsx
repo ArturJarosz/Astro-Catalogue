@@ -6,6 +6,7 @@ import { ObjectDetailModal } from './components/ObjectDetailModal'
 import { Sidebar } from './components/Sidebar'
 import { WarningsPanel } from './components/WarningsPanel'
 import { groupObjectsByCatalog } from './lib/groupObjects'
+import { formatExposure } from './lib/format'
 
 export default function App() {
   const [catalogue, setCatalogue] = useState<CatalogueData | null>(null)
@@ -101,11 +102,23 @@ export default function App() {
             </div>
           ) : (
             <div className="space-y-10">
-              {visibleGroups.map((group) => (
+              {visibleGroups.map((group) => {
+                const groupTotalFrames = group.objects.reduce(
+                  (sum, o) => sum + o.frameTypes.reduce((s, ft) => s + ft.totalFrames, 0),
+                  0,
+                )
+                const groupTotalExposure = group.objects.reduce(
+                  (sum, o) => sum + o.frameTypes.reduce((s, ft) => s + ft.totalExposureSeconds, 0),
+                  0,
+                )
+                return (
                 <section key={group.catalog}>
-                  <h2 className="mb-3 flex items-baseline gap-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+                  <h2 className="mb-3 flex items-baseline gap-2 text-base font-semibold uppercase tracking-wide text-slate-400">
                     {group.catalog}
                     <span className="text-xs font-normal normal-case text-slate-600">({group.objects.length})</span>
+                    <span className="ml-auto text-xs font-normal normal-case tabular-nums text-slate-600">
+                      {groupTotalFrames} frames · {formatExposure(groupTotalExposure)}
+                    </span>
                   </h2>
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {group.objects.map((object) => (
@@ -118,7 +131,8 @@ export default function App() {
                     ))}
                   </div>
                 </section>
-              ))}
+                )
+              })}
             </div>
           )}
         </main>

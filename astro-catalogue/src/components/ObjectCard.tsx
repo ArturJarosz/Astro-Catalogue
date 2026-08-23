@@ -28,7 +28,10 @@ export function ObjectCard({ object, warnings, onClick }: ObjectCardProps) {
     >
       <div className="mb-2 flex items-center justify-between gap-2">
         <h3 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-slate-100">
-          <span className="truncate">{object.name}</span>
+          <span className="truncate">
+            {object.name}
+            {object.isMosaic && <span className="text-slate-400"> (Mosaic)</span>}
+          </span>
           {objectWarnings.length > 0 && (
             <span
               className="flex shrink-0 items-center gap-0.5 text-amber-400"
@@ -39,11 +42,9 @@ export function ObjectCard({ object, warnings, onClick }: ObjectCardProps) {
             </span>
           )}
         </h3>
-        {object.isMosaic && (
-          <span className="shrink-0 rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
-            Mosaic
-          </span>
-        )}
+        <span className="shrink-0 text-[11px] tabular-nums text-slate-500">
+          {grandTotalFrames} frames · {formatExposure(grandTotalExposure)}
+        </span>
       </div>
 
       {object.frameTypes.length === 0 ? (
@@ -59,12 +60,6 @@ export function ObjectCard({ object, warnings, onClick }: ObjectCardProps) {
           ))}
         </div>
       )}
-
-      <div className="mt-2 grid grid-cols-[1fr_auto_auto] gap-x-4 border-t border-white/5 pt-2 text-[11px] tabular-nums text-slate-500">
-        <span>Total</span>
-        <span className="text-right">{grandTotalFrames} frames</span>
-        <span className="text-right">{formatExposure(grandTotalExposure)}</span>
-      </div>
     </div>
   )
 }
