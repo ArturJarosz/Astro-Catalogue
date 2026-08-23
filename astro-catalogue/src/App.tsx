@@ -195,6 +195,7 @@ export default function App() {
                       objects={group.objects}
                       warnings={catalogue.warnings}
                       onSelect={setSelectedObject}
+                      showThumbnails={viewMode === 'thumbnail-list'}
                     />
                   )}
                 </section>

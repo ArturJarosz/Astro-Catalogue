@@ -40,6 +40,12 @@ makeFrames(path.join(OUT_DIR, 'M 31_mosaic', 'LP', '2026.08.20 LP 30s'), 15, '.f
 // NGC 7000 — a longer single-frame-type object
 makeFrames(path.join(OUT_DIR, 'NGC 7000', 'LP', '2026.06.01 LP 60s'), 20, '.fit')
 
+// M 101 — used to exercise natural/numeric name sorting against M 31 and M 32
+makeFrames(path.join(OUT_DIR, 'M 101', 'LP', '2026.05.12 LP 30s'), 22, '.fit')
+
+// M 32 — a small companion object, single short session
+makeFrames(path.join(OUT_DIR, 'M 32', 'LP', '2026.08.11 LP 20s'), 10, '.fit')
+
 // Intentionally malformed entries, to demonstrate the warnings panel:
 fs.mkdirSync(path.join(OUT_DIR, 'M 51', 'LP', 'not-a-valid-session-name'), { recursive: true })
 fs.writeFileSync(path.join(OUT_DIR, 'M 51', 'LP', 'not-a-valid-session-name', 'frame_001.fit'), '')

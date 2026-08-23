@@ -1,14 +1,16 @@
 import type { ObjectInfo, WarningInfo } from '../../electron/shared-types'
 import { formatExposure, formatSize } from '../lib/format'
 import { getObjectWarnings } from '../lib/warnings'
+import { ObjectThumbnail } from './ObjectThumbnail'
 
 interface ObjectListTableProps {
   objects: ObjectInfo[]
   warnings: WarningInfo[]
   onSelect: (object: ObjectInfo) => void
+  showThumbnails?: boolean
 }
 
-export function ObjectListTable({ objects, warnings, onSelect }: ObjectListTableProps) {
+export function ObjectListTable({ objects, warnings, onSelect, showThumbnails = false }: ObjectListTableProps) {
   const frameTypeNames = Array.from(new Set(objects.flatMap((o) => o.frameTypes.map((ft) => ft.name)))).sort()
 
   return (
@@ -16,6 +18,7 @@ export function ObjectListTable({ objects, warnings, onSelect }: ObjectListTable
       <table className="w-full border-collapse text-sm">
         <thead>
           <tr className="border-b border-white/10 bg-white/5 text-xs uppercase tracking-wide text-slate-400">
+            {showThumbnails && <th className="w-10 px-3 py-2"></th>}
             <th className="px-3 py-2 text-left font-medium">Object</th>
             {frameTypeNames.map((name) => (
               <th key={name} className="whitespace-nowrap px-3 py-2 text-right font-medium">
@@ -47,6 +50,11 @@ export function ObjectListTable({ objects, warnings, onSelect }: ObjectListTable
                 }}
                 className="cursor-pointer border-b border-white/5 bg-slate-800 transition last:border-b-0 hover:bg-slate-700"
               >
+                {showThumbnails && (
+                  <td className="px-3 py-2">
+                    <ObjectThumbnail object={object} />
+                  </td>
+                )}
                 <td className="px-3 py-2">
                   <span className="flex min-w-0 items-center gap-1.5 font-semibold text-slate-100">
                     <span className="truncate">

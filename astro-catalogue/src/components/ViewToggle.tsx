@@ -1,4 +1,4 @@
-export type ViewMode = 'card' | 'list'
+export type ViewMode = 'card' | 'list' | 'thumbnail-list'
 
 interface ViewToggleProps {
   value: ViewMode
@@ -10,6 +10,11 @@ export function ViewToggle({ value, onChange }: ViewToggleProps) {
     <div className="flex shrink-0 rounded-lg border border-white/10 bg-white/5 p-0.5 text-sm">
       <ViewToggleButton label="Cards" active={value === 'card'} onClick={() => onChange('card')} />
       <ViewToggleButton label="List" active={value === 'list'} onClick={() => onChange('list')} />
+      <ViewToggleButton
+        label="Thumbnails"
+        active={value === 'thumbnail-list'}
+        onClick={() => onChange('thumbnail-list')}
+      />
     </div>
   )
 }
