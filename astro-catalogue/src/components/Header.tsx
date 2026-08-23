@@ -19,7 +19,7 @@ export function Header({
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/80 backdrop-blur">
-      <div className="mx-auto flex max-w-6xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
+      <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 bg-clip-text text-2xl font-semibold tracking-tight text-transparent">
             Astro Catalogue
