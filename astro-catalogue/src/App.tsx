@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { CatalogueData, ObjectInfo } from '../electron/shared-types'
+import { ColumnFilter } from './components/ColumnFilter'
 import { Header } from './components/Header'
 import { ObjectCard } from './components/ObjectCard'
 import { ObjectDetailModal } from './components/ObjectDetailModal'
@@ -9,7 +10,7 @@ import { SortControl } from './components/SortControl'
 import { ViewToggle, type ViewMode } from './components/ViewToggle'
 import { WarningsPanel } from './components/WarningsPanel'
 import { groupObjectsByCatalog } from './lib/groupObjects'
-import { formatExposure, formatSize } from './lib/format'
+import { formatMetrics, type MetricKey } from './lib/columns'
 import { compareObjects, type SortDirection, type SortKey } from './lib/sortObjects'
 
 export default function App() {
@@ -25,10 +26,34 @@ export default function App() {
   const [nameFilter, setNameFilter] = useState('')
   const [sortKey, setSortKey] = useState<SortKey>('name')
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc')
+  const [selectedFrameTypes, setSelectedFrameTypes] = useState<Set<string> | null>(null)
+  const [showTotal, setShowTotal] = useState(true)
+  const [selectedMetrics, setSelectedMetrics] = useState<Set<MetricKey>>(
+    () => new Set<MetricKey>(['frames', 'exposure', 'size']),
+  )
 
   function handleViewModeChange(mode: ViewMode) {
     setViewMode(mode)
     localStorage.setItem('viewMode', mode)
+  }
+
+  function handleToggleFrameType(name: string) {
+    setSelectedFrameTypes((prev) => {
+      const base = prev ?? new Set(allFrameTypeNames)
+      const next = new Set(base)
+      if (next.has(name)) next.delete(name)
+      else next.add(name)
+      return next
+    })
+  }
+
+  function handleToggleMetric(key: MetricKey) {
+    setSelectedMetrics((prev) => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
   }
 
   useEffect(() => {
@@ -88,6 +113,10 @@ export default function App() {
     ...group,
     objects: [...group.objects].sort((a, b) => compareObjects(a, b, sortKey, sortDirection)),
   }))
+  const allFrameTypeNames = catalogue
+    ? Array.from(new Set(catalogue.objects.flatMap((o) => o.frameTypes.map((ft) => ft.name)))).sort()
+    : []
+  const effectiveSelectedFrameTypes = selectedFrameTypes ?? new Set(allFrameTypeNames)
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -135,6 +164,15 @@ export default function App() {
                   onSortKeyChange={setSortKey}
                   onSortDirectionChange={setSortDirection}
                 />
+                <ColumnFilter
+                  frameTypeOptions={allFrameTypeNames}
+                  selectedFrameTypes={effectiveSelectedFrameTypes}
+                  onToggleFrameType={handleToggleFrameType}
+                  showTotal={showTotal}
+                  onToggleTotal={() => setShowTotal((s) => !s)}
+                  selectedMetrics={selectedMetrics}
+                  onToggleMetric={handleToggleMetric}
+                />
                 <ViewToggle value={viewMode} onChange={handleViewModeChange} />
               </div>
             </div>
@@ -175,9 +213,18 @@ export default function App() {
                   <h2 className="mb-3 flex items-baseline gap-2 text-base font-semibold uppercase tracking-wide text-slate-400">
                     {group.catalog}
                     <span className="text-xs font-normal normal-case text-slate-600">({group.objects.length})</span>
-                    <span className="ml-auto text-xs font-normal normal-case tabular-nums text-slate-600">
-                      {groupTotalFrames} frames · {formatExposure(groupTotalExposure)} · {formatSize(groupTotalSize)}
-                    </span>
+                    {showTotal && (
+                      <span className="ml-auto text-xs font-normal normal-case tabular-nums text-slate-600">
+                        {formatMetrics(
+                          {
+                            totalFrames: groupTotalFrames,
+                            totalExposureSeconds: groupTotalExposure,
+                            totalSizeBytes: groupTotalSize,
+                          },
+                          selectedMetrics,
+                        )}
+                      </span>
+                    )}
                   </h2>
                   {viewMode === 'card' ? (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -187,6 +234,9 @@ export default function App() {
                           object={object}
                           warnings={catalogue.warnings}
                           onClick={() => setSelectedObject(object)}
+                          visibleFrameTypes={effectiveSelectedFrameTypes}
+                          showTotal={showTotal}
+                          visibleMetrics={selectedMetrics}
                         />
                       ))}
                     </div>
@@ -196,6 +246,9 @@ export default function App() {
                       warnings={catalogue.warnings}
                       onSelect={setSelectedObject}
                       showThumbnails={viewMode === 'thumbnail-list'}
+                      visibleFrameTypes={effectiveSelectedFrameTypes}
+                      showTotal={showTotal}
+                      visibleMetrics={selectedMetrics}
                     />
                   )}
                 </section>

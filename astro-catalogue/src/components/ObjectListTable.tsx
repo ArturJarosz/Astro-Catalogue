@@ -1,5 +1,5 @@
 import type { ObjectInfo, WarningInfo } from '../../electron/shared-types'
-import { formatExposure, formatSize } from '../lib/format'
+import { formatMetrics, type MetricKey } from '../lib/columns'
 import { getObjectWarnings } from '../lib/warnings'
 import { ObjectThumbnail } from './ObjectThumbnail'
 
@@ -8,10 +8,23 @@ interface ObjectListTableProps {
   warnings: WarningInfo[]
   onSelect: (object: ObjectInfo) => void
   showThumbnails?: boolean
+  visibleFrameTypes: Set<string>
+  showTotal: boolean
+  visibleMetrics: Set<MetricKey>
 }
 
-export function ObjectListTable({ objects, warnings, onSelect, showThumbnails = false }: ObjectListTableProps) {
-  const frameTypeNames = Array.from(new Set(objects.flatMap((o) => o.frameTypes.map((ft) => ft.name)))).sort()
+export function ObjectListTable({
+  objects,
+  warnings,
+  onSelect,
+  showThumbnails = false,
+  visibleFrameTypes,
+  showTotal,
+  visibleMetrics,
+}: ObjectListTableProps) {
+  const frameTypeNames = Array.from(new Set(objects.flatMap((o) => o.frameTypes.map((ft) => ft.name))))
+    .filter((name) => visibleFrameTypes.has(name))
+    .sort()
 
   return (
     <div className="overflow-x-auto rounded-lg border border-white/10">
@@ -25,7 +38,7 @@ export function ObjectListTable({ objects, warnings, onSelect, showThumbnails = 
                 {name}
               </th>
             ))}
-            <th className="whitespace-nowrap px-3 py-2 text-right font-medium">Total</th>
+            {showTotal && <th className="whitespace-nowrap px-3 py-2 text-right font-medium">Total</th>}
           </tr>
         </thead>
         <tbody>
@@ -79,20 +92,22 @@ export function ObjectListTable({ objects, warnings, onSelect, showThumbnails = 
                       key={name}
                       className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-slate-300"
                     >
-                      {ft ? (
-                        <>
-                          {ft.totalFrames} frames · {formatExposure(ft.totalExposureSeconds)} ·{' '}
-                          {formatSize(ft.totalSizeBytes)}
-                        </>
-                      ) : (
-                        <span className="text-slate-600">–</span>
-                      )}
+                      {ft ? formatMetrics(ft, visibleMetrics) : <span className="text-slate-600">–</span>}
                     </td>
                   )
                 })}
-                <td className="whitespace-nowrap px-3 py-2 text-right text-[11px] font-bold tabular-nums text-white">
-                  {grandTotalFrames} frames · {formatExposure(grandTotalExposure)} · {formatSize(grandTotalSize)}
-                </td>
+                {showTotal && (
+                  <td className="whitespace-nowrap px-3 py-2 text-right text-[11px] font-bold tabular-nums text-white">
+                    {formatMetrics(
+                      {
+                        totalFrames: grandTotalFrames,
+                        totalExposureSeconds: grandTotalExposure,
+                        totalSizeBytes: grandTotalSize,
+                      },
+                      visibleMetrics,
+                    )}
+                  </td>
+                )}
               </tr>
             )
           })}
