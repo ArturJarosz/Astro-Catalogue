@@ -1,0 +1,67 @@
+{
+  "name": "astro-catalogue",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "lint": "oxlint",
+    "preview": "vite preview",
+    "package": "npm run build && electron-builder"
+  },
+  "dependencies": {
+    "better-sqlite3": "^13.0.3",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
+  },
+  "devDependencies": {
+    "@tailwindcss/vite": "^4.3.3",
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.17",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^6.0.4",
+    "electron": "^43.4.1",
+    "electron-builder": "^26.15.3",
+    "oxlint": "^1.75.0",
+    "playwright-core": "^1.62.1",
+    "tailwindcss": "^4.3.3",
+    "typescript": "~6.0.2",
+    "vite": "^8.2.0",
+    "vite-plugin-electron": "^1.1.1",
+    "vite-plugin-electron-renderer": "^1.0.0"
+  },
+  "allowScripts": {
+    "better-sqlite3@13.0.3": true,
+    "electron@43.4.1": true,
+    "electron-winstaller@5.4.0": true
+  },
+  "build": {
+    "appId": "com.astrocatalogue.app",
+    "productName": "Astro Catalogue",
+    "files": [
+      "dist",
+      "dist-electron"
+    ],
+    "asarUnpack": [
+      "**/better-sqlite3/**"
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "linux": {
+      "target": [
+        "AppImage",
+        "deb"
+      ],
+      "category": "Graphics"
+    },
+    "win": {
+      "target": [
+        "nsis"
+      ]
+    }
+  }
+}
