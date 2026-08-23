@@ -9,7 +9,8 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "package": "npm run build && electron-builder"
+    "package": "npm run build && electron-builder",
+    "sample-data": "node scripts/generate-sample-data.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",

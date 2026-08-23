@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { resolveCatalog } from './catalog'
 import type { FrameTypeInfo, ObjectInfo, SessionInfo, WarningInfo } from './shared-types'
 
 const MOSAIC_SUFFIX = '_mosaic'
@@ -73,7 +74,9 @@ function scanObjectDir(objectPath: string, objectDirName: string, warnings: Warn
     frameTypes.push(scanFrameTypeDir(entryPath, entry.name, warnings))
   }
 
-  return { name, isMosaic, path: objectPath, frameTypes }
+  const { catalog, catalogNumber } = resolveCatalog(name)
+
+  return { name, isMosaic, path: objectPath, frameTypes, catalog, catalogNumber }
 }
 
 export interface ScanResult {

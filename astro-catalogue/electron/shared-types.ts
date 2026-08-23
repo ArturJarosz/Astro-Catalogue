@@ -17,6 +17,8 @@ export interface ObjectInfo {
   isMosaic: boolean
   path: string
   frameTypes: FrameTypeInfo[]
+  catalog: string
+  catalogNumber: number | null
 }
 
 export interface WarningInfo {

@@ -23,7 +23,9 @@ export function initDb(): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL,
       path TEXT NOT NULL,
-      is_mosaic INTEGER NOT NULL DEFAULT 0
+      is_mosaic INTEGER NOT NULL DEFAULT 0,
+      catalog TEXT NOT NULL DEFAULT 'Other',
+      catalog_number INTEGER
     );
 
     CREATE TABLE IF NOT EXISTS frame_types (
@@ -47,6 +49,15 @@ export function initDb(): void {
       message TEXT NOT NULL
     );
   `)
+
+  const objectColumns = db.prepare('PRAGMA table_info(objects)').all() as { name: string }[]
+  const objectColumnNames = new Set(objectColumns.map((c) => c.name))
+  if (!objectColumnNames.has('catalog')) {
+    db.exec("ALTER TABLE objects ADD COLUMN catalog TEXT NOT NULL DEFAULT 'Other'")
+  }
+  if (!objectColumnNames.has('catalog_number')) {
+    db.exec('ALTER TABLE objects ADD COLUMN catalog_number INTEGER')
+  }
 }
 
 export function getLastRoot(): string | null {
@@ -64,7 +75,9 @@ export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings:
     db.prepare('DELETE FROM warnings').run()
     db.prepare('DELETE FROM objects').run()
 
-    const insertObject = db.prepare('INSERT INTO objects (name, path, is_mosaic) VALUES (?, ?, ?)')
+    const insertObject = db.prepare(
+      'INSERT INTO objects (name, path, is_mosaic, catalog, catalog_number) VALUES (?, ?, ?, ?, ?)',
+    )
     const insertFrameType = db.prepare('INSERT INTO frame_types (object_id, name) VALUES (?, ?)')
     const insertSession = db.prepare(
       'INSERT INTO sessions (frame_type_id, date, capture_seconds, frame_count, folder_path) VALUES (?, ?, ?, ?, ?)',
@@ -72,7 +85,7 @@ export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings:
     const insertWarning = db.prepare('INSERT INTO warnings (path, message) VALUES (?, ?)')
 
     for (const obj of objects) {
-      const objResult = insertObject.run(obj.name, obj.path, obj.isMosaic ? 1 : 0)
+      const objResult = insertObject.run(obj.name, obj.path, obj.isMosaic ? 1 : 0, obj.catalog, obj.catalogNumber)
       const objectId = Number(objResult.lastInsertRowid)
       for (const ft of obj.frameTypes) {
         const ftResult = insertFrameType.run(objectId, ft.name)
@@ -110,11 +123,15 @@ export function loadCatalogue(): CatalogueData {
     | { root_path: string | null; last_scanned_at: string | null }
     | undefined
 
-  const objectRows = db.prepare('SELECT id, name, path, is_mosaic FROM objects ORDER BY name').all() as {
+  const objectRows = db
+    .prepare('SELECT id, name, path, is_mosaic, catalog, catalog_number FROM objects ORDER BY name')
+    .all() as {
     id: number
     name: string
     path: string
     is_mosaic: number
+    catalog: string
+    catalog_number: number | null
   }[]
 
   const objects: ObjectInfo[] = objectRows.map((objRow) => {
@@ -142,7 +159,14 @@ export function loadCatalogue(): CatalogueData {
       return { name: ftRow.name, sessions, totalFrames, totalExposureSeconds }
     })
 
-    return { name: objRow.name, isMosaic: objRow.is_mosaic === 1, path: objRow.path, frameTypes }
+    return {
+      name: objRow.name,
+      isMosaic: objRow.is_mosaic === 1,
+      path: objRow.path,
+      frameTypes,
+      catalog: objRow.catalog,
+      catalogNumber: objRow.catalog_number,
+    }
   })
 
   const warningRows = db.prepare('SELECT path, message FROM warnings ORDER BY path').all() as WarningInfo[]

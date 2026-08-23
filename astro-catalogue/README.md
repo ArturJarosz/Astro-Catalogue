@@ -72,6 +72,20 @@ npm run dev
 This starts Vite (renderer + main + preload build with HMR) and launches the
 Electron window automatically.
 
+## Try it with sample data
+
+Don't have a photo directory handy? Generate one:
+
+```bash
+npm run sample-data
+```
+
+This creates `./sample-data` with a few objects (including a mosaic and
+multiple sessions per frame type) plus a couple of intentionally malformed
+entries so the warnings panel has something to show. In the app, click
+**Select Root Directory**, pick the generated `sample-data` folder, then
+click **Analyze**.
+
 ## Build
 
 ```bash

@@ -3,6 +3,7 @@ import type { CatalogueData } from '../electron/shared-types'
 import { Header } from './components/Header'
 import { ObjectCard } from './components/ObjectCard'
 import { WarningsPanel } from './components/WarningsPanel'
+import { groupObjectsByCatalog } from './lib/groupObjects'
 
 export default function App() {
   const [catalogue, setCatalogue] = useState<CatalogueData | null>(null)
@@ -78,9 +79,19 @@ export default function App() {
             <p className="text-sm">Click Analyze to scan the selected directory</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {catalogue.objects.map((object) => (
-              <ObjectCard key={object.path} object={object} />
+          <div className="space-y-10">
+            {groupObjectsByCatalog(catalogue.objects).map((group) => (
+              <section key={group.catalog}>
+                <h2 className="mb-3 flex items-baseline gap-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+                  {group.catalog}
+                  <span className="text-xs font-normal normal-case text-slate-600">({group.objects.length})</span>
+                </h2>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                  {group.objects.map((object) => (
+                    <ObjectCard key={object.path} object={object} />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}
