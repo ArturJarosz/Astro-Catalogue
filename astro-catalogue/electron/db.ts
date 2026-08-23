@@ -1,16 +1,16 @@
-import Database from 'better-sqlite3'
+import { DatabaseSync } from 'node:sqlite'
 import path from 'node:path'
 import fs from 'node:fs'
 import { app } from 'electron'
 import type { CatalogueData, ObjectInfo, WarningInfo } from './shared-types'
 
-let db: Database.Database
+let db: DatabaseSync
 
 export function initDb(): void {
   const dataDir = app.getPath('userData')
   fs.mkdirSync(dataDir, { recursive: true })
-  db = new Database(path.join(dataDir, 'catalogue.db'))
-  db.pragma('journal_mode = WAL')
+  db = new DatabaseSync(path.join(dataDir, 'catalogue.db'))
+  db.exec('PRAGMA journal_mode = WAL')
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS scan_meta (
@@ -59,7 +59,8 @@ export function getLastRoot(): string | null {
 export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings: WarningInfo[]): void {
   const now = new Date().toISOString()
 
-  const tx = db.transaction(() => {
+  db.exec('BEGIN')
+  try {
     db.prepare('DELETE FROM warnings').run()
     db.prepare('DELETE FROM objects').run()
 
@@ -72,11 +73,13 @@ export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings:
 
     for (const obj of objects) {
       const objResult = insertObject.run(obj.name, obj.path, obj.isMosaic ? 1 : 0)
+      const objectId = Number(objResult.lastInsertRowid)
       for (const ft of obj.frameTypes) {
-        const ftResult = insertFrameType.run(objResult.lastInsertRowid, ft.name)
+        const ftResult = insertFrameType.run(objectId, ft.name)
+        const frameTypeId = Number(ftResult.lastInsertRowid)
         for (const session of ft.sessions) {
           insertSession.run(
-            ftResult.lastInsertRowid,
+            frameTypeId,
             session.date,
             session.captureSeconds,
             session.frameCount,
@@ -94,9 +97,12 @@ export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings:
       `INSERT INTO scan_meta (id, root_path, last_scanned_at) VALUES (1, ?, ?)
        ON CONFLICT(id) DO UPDATE SET root_path = excluded.root_path, last_scanned_at = excluded.last_scanned_at`,
     ).run(rootPath, now)
-  })
 
-  tx()
+    db.exec('COMMIT')
+  } catch (err) {
+    db.exec('ROLLBACK')
+    throw err
+  }
 }
 
 export function loadCatalogue(): CatalogueData {
