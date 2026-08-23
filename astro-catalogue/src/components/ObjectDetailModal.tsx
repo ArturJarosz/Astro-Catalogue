@@ -1,0 +1,133 @@
+import { useEffect, useState } from 'react'
+import type { ObjectInfo, ObjectSummary } from '../../electron/shared-types'
+import { formatExposure } from '../lib/format'
+
+interface ObjectDetailModalProps {
+  object: ObjectInfo
+  onClose: () => void
+}
+
+export function ObjectDetailModal({ object, onClose }: ObjectDetailModalProps) {
+  const [summary, setSummary] = useState<ObjectSummary | null>(null)
+  const [loadingSummary, setLoadingSummary] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+
+    window.astroCatalogue
+      .getObjectSummary(object.name, object.catalog, object.catalogNumber)
+      .then((result) => {
+        if (!cancelled) setSummary(result)
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingSummary(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [object.name, object.catalog, object.catalogNumber])
+
+  useEffect(() => {
+    function handleKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div
+        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-900 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
+          <div className="flex items-center gap-2">
+            <h2 className="text-lg font-semibold text-slate-100">{object.name}</h2>
+            {object.isMosaic && (
+              <span className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
+                Mosaic
+              </span>
+            )}
+            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+              {object.catalog}
+            </span>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded-md p-1 text-slate-400 transition hover:bg-white/10 hover:text-slate-200"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-5 sm:flex-row">
+          <div className="flex w-full shrink-0 flex-col gap-3 sm:w-52">
+            <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black/30">
+              {loadingSummary ? (
+                <span className="text-xs text-slate-600">Loading…</span>
+              ) : summary?.thumbnailUrl ? (
+                <img src={summary.thumbnailUrl} alt={object.name} className="h-full w-full object-cover" />
+              ) : (
+                <span className="px-3 text-center text-xs text-slate-600">No image available</span>
+              )}
+            </div>
+
+            {!loadingSummary && summary?.description && (
+              <p className="text-sm font-medium text-slate-300">{summary.description}</p>
+            )}
+            {!loadingSummary && summary?.extract && (
+              <p className="text-xs leading-relaxed text-slate-500">{summary.extract}</p>
+            )}
+            {!loadingSummary && summary?.pageUrl && (
+              <button
+                onClick={() => window.astroCatalogue.openExternal(summary.pageUrl!)}
+                className="text-left text-xs font-medium text-sky-400 hover:text-sky-300"
+              >
+                View on Wikipedia →
+              </button>
+            )}
+            {!loadingSummary && !summary && <p className="text-xs text-slate-600">No classification data found.</p>}
+          </div>
+
+          <div className="min-w-0 flex-1 space-y-5">
+            {object.frameTypes.length === 0 ? (
+              <p className="text-sm text-slate-500">No frame-type folders found</p>
+            ) : (
+              object.frameTypes.map((ft) => (
+                <div key={ft.name}>
+                  <div className="mb-2 flex items-baseline justify-between">
+                    <h3 className="text-sm font-semibold text-slate-200">{ft.name}</h3>
+                    <span className="text-xs tabular-nums text-slate-500">
+                      {ft.totalFrames} frames &middot; {formatExposure(ft.totalExposureSeconds)}
+                    </span>
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-xs tabular-nums">
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Date</span>
+                    <span className="text-right text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                      Frames
+                    </span>
+                    <span className="text-right text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                      Exposure
+                    </span>
+                    {ft.sessions.map((session) => (
+                      <div className="contents" key={session.folderPath}>
+                        <span className="text-slate-300">{session.date}</span>
+                        <span className="text-right text-slate-200">{session.frameCount}</span>
+                        <span className="text-right text-slate-200">
+                          {formatExposure(session.frameCount * session.captureSeconds)}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}

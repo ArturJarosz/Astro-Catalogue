@@ -38,9 +38,19 @@ export interface ScanProgress {
   objectsScanned: number
 }
 
+export interface ObjectSummary {
+  title: string
+  description: string | null
+  extract: string | null
+  thumbnailUrl: string | null
+  pageUrl: string | null
+}
+
 export interface AstroCatalogueApi {
   selectRootDir: () => Promise<string | null>
   analyzeDirectory: (root: string) => Promise<CatalogueData>
   getCatalogue: () => Promise<CatalogueData>
   onScanProgress: (callback: (progress: ScanProgress) => void) => () => void
+  getObjectSummary: (name: string, catalog: string, catalogNumber: number | null) => Promise<ObjectSummary | null>
+  openExternal: (url: string) => Promise<void>
 }

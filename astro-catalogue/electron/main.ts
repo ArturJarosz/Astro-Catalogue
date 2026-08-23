@@ -1,8 +1,9 @@
-import { app, BrowserWindow, dialog, ipcMain } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initDb, getLastRoot, saveCatalogue, loadCatalogue } from './db'
 import { scanRoot } from './scanner'
+import type { ObjectSummary } from './shared-types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -56,6 +57,102 @@ ipcMain.handle('get-catalogue', async () => {
   if (catalogue.rootPath) return catalogue
   const lastRoot = getLastRoot()
   return { ...catalogue, rootPath: lastRoot }
+})
+
+interface WikiSummary {
+  title: string
+  description?: string
+  extract?: string
+  thumbnail?: { source: string }
+  originalimage?: { source: string }
+  content_urls?: { desktop?: { page?: string } }
+}
+
+const WIKI_USER_AGENT = 'AstroCatalogue/1.0 (local desktop app)'
+const wikiSummaryCache = new Map<string, ObjectSummary | null>()
+
+async function fetchWikiSummary(title: string): Promise<WikiSummary | null> {
+  try {
+    const res = await fetch(`https://en.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(title)}`, {
+      headers: { 'User-Agent': WIKI_USER_AGENT },
+    })
+    if (!res.ok) return null
+    return (await res.json()) as WikiSummary
+  } catch {
+    return null
+  }
+}
+
+async function searchWikiTitle(query: string): Promise<string | null> {
+  try {
+    const url = new URL('https://en.wikipedia.org/w/api.php')
+    url.searchParams.set('action', 'opensearch')
+    url.searchParams.set('search', query)
+    url.searchParams.set('limit', '1')
+    url.searchParams.set('namespace', '0')
+    url.searchParams.set('format', 'json')
+    const res = await fetch(url, { headers: { 'User-Agent': WIKI_USER_AGENT } })
+    if (!res.ok) return null
+    const data = (await res.json()) as [string, string[], string[], string[]]
+    return data[1]?.[0] ?? null
+  } catch {
+    return null
+  }
+}
+
+function candidateWikiTitle(name: string, catalog: string, catalogNumber: number | null): string {
+  if (catalogNumber === null) return name
+  switch (catalog) {
+    case 'Messier':
+      return `Messier ${catalogNumber}`
+    case 'Caldwell':
+      return `Caldwell ${catalogNumber}`
+    case 'NGC':
+      return `NGC ${catalogNumber}`
+    case 'IC':
+      return `IC ${catalogNumber}`
+    case 'Abell':
+      return `Abell ${catalogNumber}`
+    default:
+      return name
+  }
+}
+
+ipcMain.handle(
+  'get-object-summary',
+  async (
+    _event,
+    name: string,
+    catalog: string,
+    catalogNumber: number | null,
+  ): Promise<ObjectSummary | null> => {
+    const primaryTitle = candidateWikiTitle(name, catalog, catalogNumber)
+    const cached = wikiSummaryCache.get(primaryTitle)
+    if (cached !== undefined) return cached
+
+    let summary = await fetchWikiSummary(primaryTitle)
+    if (!summary) {
+      const searched = await searchWikiTitle(primaryTitle)
+      if (searched) summary = await fetchWikiSummary(searched)
+    }
+
+    const result: ObjectSummary | null = summary
+      ? {
+          title: summary.title,
+          description: summary.description ?? null,
+          extract: summary.extract ?? null,
+          thumbnailUrl: summary.thumbnail?.source ?? summary.originalimage?.source ?? null,
+          pageUrl: summary.content_urls?.desktop?.page ?? null,
+        }
+      : null
+
+    wikiSummaryCache.set(primaryTitle, result)
+    return result
+  },
+)
+
+ipcMain.handle('open-external', async (_event, url: string) => {
+  await shell.openExternal(url)
 })
 
 app.whenReady().then(() => {

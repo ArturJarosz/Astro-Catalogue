@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react'
-import type { CatalogueData } from '../electron/shared-types'
+import type { CatalogueData, ObjectInfo } from '../electron/shared-types'
 import { Header } from './components/Header'
 import { ObjectCard } from './components/ObjectCard'
+import { ObjectDetailModal } from './components/ObjectDetailModal'
 import { Sidebar } from './components/Sidebar'
 import { WarningsPanel } from './components/WarningsPanel'
 import { groupObjectsByCatalog } from './lib/groupObjects'
@@ -12,6 +13,7 @@ export default function App() {
   const [scanProgressLabel, setScanProgressLabel] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [selectedCatalog, setSelectedCatalog] = useState<string | null>(null)
+  const [selectedObject, setSelectedObject] = useState<ObjectInfo | null>(null)
 
   useEffect(() => {
     window.astroCatalogue.getCatalogue().then(setCatalogue).catch((e) => setError(String(e)))
@@ -105,9 +107,9 @@ export default function App() {
                     {group.catalog}
                     <span className="text-xs font-normal normal-case text-slate-600">({group.objects.length})</span>
                   </h2>
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                     {group.objects.map((object) => (
-                      <ObjectCard key={object.path} object={object} />
+                      <ObjectCard key={object.path} object={object} onClick={() => setSelectedObject(object)} />
                     ))}
                   </div>
                 </section>
@@ -116,6 +118,14 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {selectedObject && (
+        <ObjectDetailModal
+          key={selectedObject.path}
+          object={selectedObject}
+          onClose={() => setSelectedObject(null)}
+        />
+      )}
     </div>
   )
 }

@@ -3,44 +3,53 @@ import { formatExposure } from '../lib/format'
 
 interface ObjectCardProps {
   object: ObjectInfo
+  onClick: () => void
 }
 
-export function ObjectCard({ object }: ObjectCardProps) {
+export function ObjectCard({ object, onClick }: ObjectCardProps) {
   const grandTotalFrames = object.frameTypes.reduce((sum, ft) => sum + ft.totalFrames, 0)
   const grandTotalExposure = object.frameTypes.reduce((sum, ft) => sum + ft.totalExposureSeconds, 0)
 
   return (
-    <div className="rounded-xl border border-white/10 bg-white/[0.03] p-5 shadow-sm transition hover:border-white/20 hover:bg-white/[0.05]">
-      <div className="mb-3 flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-slate-100">{object.name}</h3>
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          onClick()
+        }
+      }}
+      className="cursor-pointer rounded-lg border border-white/10 bg-white/[0.03] p-3 shadow-sm transition hover:border-white/20 hover:bg-white/[0.05]"
+    >
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <h3 className="text-sm font-semibold text-slate-100">{object.name}</h3>
         {object.isMosaic && (
-          <span className="rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-2.5 py-0.5 text-xs font-medium text-fuchsia-300">
+          <span className="shrink-0 rounded-full border border-fuchsia-400/30 bg-fuchsia-400/10 px-2 py-0.5 text-[10px] font-medium text-fuchsia-300">
             Mosaic
           </span>
         )}
       </div>
 
       {object.frameTypes.length === 0 ? (
-        <p className="text-sm text-slate-500">No frame-type folders found</p>
+        <p className="text-xs text-slate-500">No frame-type folders found</p>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-1 rounded-md bg-black/20 px-2 py-1.5 text-xs tabular-nums">
           {object.frameTypes.map((ft) => (
-            <div
-              key={ft.name}
-              className="flex items-center justify-between rounded-lg bg-black/20 px-3 py-2 text-sm"
-            >
+            <div className="contents" key={ft.name}>
               <span className="font-medium text-slate-300">{ft.name}</span>
-              <span className="text-slate-400">
-                <span className="text-slate-200">{ft.totalFrames}</span> frames &middot;{' '}
-                <span className="text-slate-200">{formatExposure(ft.totalExposureSeconds)}</span>
-              </span>
+              <span className="text-right text-slate-200">{ft.totalFrames} frames</span>
+              <span className="text-right text-slate-200">{formatExposure(ft.totalExposureSeconds)}</span>
             </div>
           ))}
         </div>
       )}
 
-      <div className="mt-3 flex justify-end border-t border-white/5 pt-3 text-xs text-slate-500">
-        Total: {grandTotalFrames} frames &middot; {formatExposure(grandTotalExposure)}
+      <div className="mt-2 grid grid-cols-[1fr_auto_auto] gap-x-4 border-t border-white/5 pt-2 text-[11px] tabular-nums text-slate-500">
+        <span>Total</span>
+        <span className="text-right">{grandTotalFrames} frames</span>
+        <span className="text-right">{formatExposure(grandTotalExposure)}</span>
       </div>
     </div>
   )

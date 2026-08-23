@@ -10,6 +10,9 @@ const api: AstroCatalogueApi = {
     ipcRenderer.on('scan-progress', listener)
     return () => ipcRenderer.removeListener('scan-progress', listener)
   },
+  getObjectSummary: (name: string, catalog: string, catalogNumber: number | null) =>
+    ipcRenderer.invoke('get-object-summary', name, catalog, catalogNumber),
+  openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
 }
 
 contextBridge.exposeInMainWorld('astroCatalogue', api)
