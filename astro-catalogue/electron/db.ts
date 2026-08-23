@@ -40,7 +40,8 @@ export function initDb(): void {
       date TEXT NOT NULL,
       capture_seconds INTEGER NOT NULL,
       frame_count INTEGER NOT NULL,
-      folder_path TEXT NOT NULL
+      folder_path TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS warnings (
@@ -57,6 +58,12 @@ export function initDb(): void {
   }
   if (!objectColumnNames.has('catalog_number')) {
     db.exec('ALTER TABLE objects ADD COLUMN catalog_number INTEGER')
+  }
+
+  const sessionColumns = db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[]
+  const sessionColumnNames = new Set(sessionColumns.map((c) => c.name))
+  if (!sessionColumnNames.has('size_bytes')) {
+    db.exec('ALTER TABLE sessions ADD COLUMN size_bytes INTEGER NOT NULL DEFAULT 0')
   }
 }
 
@@ -80,7 +87,7 @@ export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings:
     )
     const insertFrameType = db.prepare('INSERT INTO frame_types (object_id, name) VALUES (?, ?)')
     const insertSession = db.prepare(
-      'INSERT INTO sessions (frame_type_id, date, capture_seconds, frame_count, folder_path) VALUES (?, ?, ?, ?, ?)',
+      'INSERT INTO sessions (frame_type_id, date, capture_seconds, frame_count, folder_path, size_bytes) VALUES (?, ?, ?, ?, ?, ?)',
     )
     const insertWarning = db.prepare('INSERT INTO warnings (path, message) VALUES (?, ?)')
 
@@ -97,6 +104,7 @@ export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings:
             session.captureSeconds,
             session.frameCount,
             session.folderPath,
+            session.sizeBytes,
           )
         }
       }
@@ -142,21 +150,29 @@ export function loadCatalogue(): CatalogueData {
     const frameTypes = frameTypeRows.map((ftRow) => {
       const sessionRows = db
         .prepare(
-          'SELECT date, capture_seconds, frame_count, folder_path FROM sessions WHERE frame_type_id = ? ORDER BY date',
+          'SELECT date, capture_seconds, frame_count, folder_path, size_bytes FROM sessions WHERE frame_type_id = ? ORDER BY date',
         )
-        .all(ftRow.id) as { date: string; capture_seconds: number; frame_count: number; folder_path: string }[]
+        .all(ftRow.id) as {
+        date: string
+        capture_seconds: number
+        frame_count: number
+        folder_path: string
+        size_bytes: number
+      }[]
 
       const sessions = sessionRows.map((s) => ({
         date: s.date,
         captureSeconds: s.capture_seconds,
         frameCount: s.frame_count,
         folderPath: s.folder_path,
+        sizeBytes: s.size_bytes,
       }))
 
       const totalFrames = sessions.reduce((sum, s) => sum + s.frameCount, 0)
       const totalExposureSeconds = sessions.reduce((sum, s) => sum + s.frameCount * s.captureSeconds, 0)
+      const totalSizeBytes = sessions.reduce((sum, s) => sum + s.sizeBytes, 0)
 
-      return { name: ftRow.name, sessions, totalFrames, totalExposureSeconds }
+      return { name: ftRow.name, sessions, totalFrames, totalExposureSeconds, totalSizeBytes }
     })
 
     return {

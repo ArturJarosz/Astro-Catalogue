@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import type { ObjectInfo, ObjectSummary, WarningInfo } from '../../electron/shared-types'
-import { formatExposure } from '../lib/format'
+import { formatExposure, formatSize } from '../lib/format'
 import { getObjectWarnings } from '../lib/warnings'
 
 interface ObjectDetailModalProps {
@@ -42,7 +42,7 @@ export function ObjectDetailModal({ object, warnings, onClose }: ObjectDetailMod
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
       <div
-        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-900 shadow-2xl"
+        className="flex max-h-[85vh] w-full max-w-6xl flex-col overflow-hidden rounded-xl border border-white/10 bg-slate-900 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-4">
@@ -75,7 +75,7 @@ export function ObjectDetailModal({ object, warnings, onClose }: ObjectDetailMod
         </div>
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-5 sm:flex-row">
-          <div className="flex w-full shrink-0 flex-col gap-3 sm:w-52">
+          <div className="flex w-full shrink-0 flex-col gap-3 sm:w-96">
             <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black/30">
               {loadingSummary ? (
                 <span className="text-xs text-slate-600">Loading…</span>
@@ -112,16 +112,20 @@ export function ObjectDetailModal({ object, warnings, onClose }: ObjectDetailMod
                   <div className="mb-2 flex items-baseline justify-between">
                     <h3 className="text-sm font-semibold text-slate-200">{ft.name}</h3>
                     <span className="text-xs tabular-nums text-slate-500">
-                      {ft.totalFrames} frames &middot; {formatExposure(ft.totalExposureSeconds)}
+                      {ft.totalFrames} frames &middot; {formatExposure(ft.totalExposureSeconds)} &middot;{' '}
+                      {formatSize(ft.totalSizeBytes)}
                     </span>
                   </div>
-                  <div className="grid grid-cols-[1fr_auto_auto] gap-x-4 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-xs tabular-nums">
+                  <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-xs tabular-nums">
                     <span className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Date</span>
                     <span className="text-right text-[10px] font-medium uppercase tracking-wide text-slate-600">
                       Frames
                     </span>
                     <span className="text-right text-[10px] font-medium uppercase tracking-wide text-slate-600">
                       Exposure
+                    </span>
+                    <span className="text-right text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                      Size
                     </span>
                     {ft.sessions.map((session) => (
                       <div className="contents" key={session.folderPath}>
@@ -130,6 +134,7 @@ export function ObjectDetailModal({ object, warnings, onClose }: ObjectDetailMod
                         <span className="text-right text-slate-200">
                           {formatExposure(session.frameCount * session.captureSeconds)}
                         </span>
+                        <span className="text-right text-slate-200">{formatSize(session.sizeBytes)}</span>
                       </div>
                     ))}
                   </div>

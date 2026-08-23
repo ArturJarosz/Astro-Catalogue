@@ -29,13 +29,15 @@ function scanSessionDir(sessionPath: string, sessionDirName: string, warnings: W
   const captureSeconds = Number.parseInt(captureSecondsStr, 10)
 
   const entries = listDirEntries(sessionPath)
-  const frameCount = entries.filter((e) => e.isFile() && isFitFile(e.name)).length
+  const fitFiles = entries.filter((e) => e.isFile() && isFitFile(e.name))
+  const frameCount = fitFiles.length
+  const sizeBytes = fitFiles.reduce((sum, f) => sum + fs.statSync(path.join(sessionPath, f.name)).size, 0)
 
   if (frameCount === 0) {
     warnings.push({ path: sessionPath, message: 'No .fit/.fits frames found in this session folder' })
   }
 
-  return { date, captureSeconds, frameCount, folderPath: sessionPath }
+  return { date, captureSeconds, frameCount, folderPath: sessionPath, sizeBytes }
 }
 
 function scanFrameTypeDir(frameTypePath: string, frameTypeName: string, warnings: WarningInfo[]): FrameTypeInfo {
@@ -54,8 +56,9 @@ function scanFrameTypeDir(frameTypePath: string, frameTypeName: string, warnings
 
   const totalFrames = sessions.reduce((sum, s) => sum + s.frameCount, 0)
   const totalExposureSeconds = sessions.reduce((sum, s) => sum + s.frameCount * s.captureSeconds, 0)
+  const totalSizeBytes = sessions.reduce((sum, s) => sum + s.sizeBytes, 0)
 
-  return { name: frameTypeName, sessions, totalFrames, totalExposureSeconds }
+  return { name: frameTypeName, sessions, totalFrames, totalExposureSeconds, totalSizeBytes }
 }
 
 function scanObjectDir(objectPath: string, objectDirName: string, warnings: WarningInfo[]): ObjectInfo {

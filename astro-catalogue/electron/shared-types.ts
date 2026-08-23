@@ -3,6 +3,7 @@ export interface SessionInfo {
   captureSeconds: number
   frameCount: number
   folderPath: string
+  sizeBytes: number
 }
 
 export interface FrameTypeInfo {
@@ -10,6 +11,7 @@ export interface FrameTypeInfo {
   sessions: SessionInfo[]
   totalFrames: number
   totalExposureSeconds: number
+  totalSizeBytes: number
 }
 
 export interface ObjectInfo {
