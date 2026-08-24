@@ -1,9 +1,11 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
+import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initDb, getLastRoot, saveCatalogue, loadCatalogue } from './db'
 import { scanRoot } from './scanner'
-import type { ObjectSummary } from './shared-types'
+import { buildCopyPlan, executeCopy, listSourceDirectories } from './seestar'
+import type { ObjectSummary, SeestarCopyItem } from './shared-types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -57,6 +59,42 @@ ipcMain.handle('get-catalogue', async () => {
   if (catalogue.rootPath) return catalogue
   const lastRoot = getLastRoot()
   return { ...catalogue, rootPath: lastRoot }
+})
+
+const SEESTAR_UNC_PATH = String.raw`\\seestar`
+const SEESTAR_CHECK_TIMEOUT_MS = 5000
+
+ipcMain.handle('check-seestar-connection', async () => {
+  const accessible = fs
+    .access(SEESTAR_UNC_PATH)
+    .then(() => true)
+    .catch(() => false)
+  const timedOut = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), SEESTAR_CHECK_TIMEOUT_MS))
+  return Promise.race([accessible, timedOut])
+})
+
+ipcMain.handle('list-seestar-directories', async () => {
+  return listSourceDirectories()
+})
+
+ipcMain.handle('select-seestar-target-dir', async () => {
+  if (!mainWindow) return null
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  return result.filePaths[0]
+})
+
+ipcMain.handle('build-seestar-copy-plan', async (_event, subDirNames: string[], targetDirectory: string) => {
+  return buildCopyPlan(subDirNames, targetDirectory)
+})
+
+ipcMain.handle('execute-seestar-copy', async (_event, items: SeestarCopyItem[], overwrite: boolean) => {
+  const copiedCount = executeCopy(items, overwrite, (copied, total, fileName) => {
+    mainWindow?.webContents.send('seestar-copy-progress', { copied, total, fileName })
+  })
+  return { copiedCount }
 })
 
 interface WikiSummary {

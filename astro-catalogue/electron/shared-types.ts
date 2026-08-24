@@ -48,6 +48,60 @@ export interface ObjectSummary {
   pageUrl: string | null
 }
 
+export interface SeestarSourceDirectory {
+  name: string
+  isSub: boolean
+  totalFiles: number
+  jpgFiles: number
+  fitFiles: number
+}
+
+export interface SeestarSubDirGroupSummary {
+  targetDate: string
+  type: string
+  targetExposure: string
+  extension: string
+  count: number
+}
+
+export interface SeestarSubDirSummary {
+  name: string
+  groups: SeestarSubDirGroupSummary[]
+}
+
+export interface SeestarInvalidFile {
+  subDirectory: string
+  fileName: string
+}
+
+export interface SeestarCopyItem {
+  sourcePath: string
+  destinationPath: string
+  destinationDirectory: string
+  fileName: string
+  objectName: string
+  type: string
+  targetDate: string
+  targetExposure: string
+  alreadyExists: boolean
+}
+
+export interface SeestarCopyPlan {
+  subDirSummaries: SeestarSubDirSummary[]
+  invalidFiles: SeestarInvalidFile[]
+  copyItems: SeestarCopyItem[]
+}
+
+export interface SeestarCopyProgress {
+  copied: number
+  total: number
+  fileName: string
+}
+
+export interface SeestarCopyResult {
+  copiedCount: number
+}
+
 export interface AstroCatalogueApi {
   selectRootDir: () => Promise<string | null>
   analyzeDirectory: (root: string) => Promise<CatalogueData>
@@ -55,4 +109,10 @@ export interface AstroCatalogueApi {
   onScanProgress: (callback: (progress: ScanProgress) => void) => () => void
   getObjectSummary: (name: string, catalog: string, catalogNumber: number | null) => Promise<ObjectSummary | null>
   openExternal: (url: string) => Promise<void>
+  checkSeestarConnection: () => Promise<boolean>
+  listSeestarDirectories: () => Promise<SeestarSourceDirectory[]>
+  selectSeestarTargetDir: () => Promise<string | null>
+  buildSeestarCopyPlan: (subDirNames: string[], targetDirectory: string) => Promise<SeestarCopyPlan>
+  executeSeestarCopy: (items: SeestarCopyItem[], overwrite: boolean) => Promise<SeestarCopyResult>
+  onSeestarCopyProgress: (callback: (progress: SeestarCopyProgress) => void) => () => void
 }

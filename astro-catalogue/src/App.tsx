@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import type { CatalogueData, ObjectInfo } from '../electron/shared-types'
+import { AppNav, type AppSection } from './components/AppNav'
 import { ColumnFilter } from './components/ColumnFilter'
 import { Header } from './components/Header'
 import { ObjectCard } from './components/ObjectCard'
 import { ObjectDetailModal } from './components/ObjectDetailModal'
 import { ObjectListTable } from './components/ObjectListTable'
+import { SeestarView } from './components/SeestarView'
 import { Sidebar } from './components/Sidebar'
 import { SortControl } from './components/SortControl'
 import { ViewToggle, type ViewMode } from './components/ViewToggle'
@@ -14,6 +16,7 @@ import { formatMetrics, type MetricKey } from './lib/columns'
 import { compareObjects, type SortDirection, type SortKey } from './lib/sortObjects'
 
 export default function App() {
+  const [activeSection, setActiveSection] = useState<AppSection>('catalogue')
   const [catalogue, setCatalogue] = useState<CatalogueData | null>(null)
   const [scanning, setScanning] = useState(false)
   const [scanProgressLabel, setScanProgressLabel] = useState<string | null>(null)
@@ -130,16 +133,25 @@ export default function App() {
       />
 
       <div className="mx-auto flex max-w-[96rem] gap-8 px-6 py-8">
+        <AppNav active={activeSection} onSelect={setActiveSection} />
+
+        <div className="min-w-0 flex-1">
+        {activeSection === 'seestar' ? (
+          <SeestarView defaultTargetDirectory={catalogue?.rootPath ?? null} />
+        ) : (
+        <>
         {catalogue && catalogue.objects.length > 0 && (
-          <Sidebar
-            groups={groups}
-            totalCount={catalogue.objects.length}
-            selectedCatalog={effectiveSelectedCatalog}
-            onSelect={setSelectedCatalog}
-          />
+          <div className="mb-6 border-b border-white/10 pb-4">
+            <Sidebar
+              groups={groups}
+              totalCount={catalogue.objects.length}
+              selectedCatalog={effectiveSelectedCatalog}
+              onSelect={setSelectedCatalog}
+            />
+          </div>
         )}
 
-        <main className="min-w-0 flex-1">
+        <main className="min-w-0">
           {error && (
             <div className="mb-6 rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-300">
               {error}
@@ -257,6 +269,9 @@ export default function App() {
             </div>
           )}
         </main>
+        </>
+        )}
+        </div>
       </div>
 
       {selectedObject && catalogue && (

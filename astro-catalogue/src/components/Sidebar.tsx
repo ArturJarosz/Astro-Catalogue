@@ -9,7 +9,7 @@ interface SidebarProps {
 
 export function Sidebar({ groups, totalCount, selectedCatalog, onSelect }: SidebarProps) {
   return (
-    <nav className="w-48 shrink-0 space-y-1">
+    <nav className="flex flex-wrap items-center gap-2">
       <SidebarItem label="All Objects" count={totalCount} active={selectedCatalog === null} onClick={() => onSelect(null)} />
       {groups.map((group) => (
         <SidebarItem
@@ -35,7 +35,7 @@ function SidebarItem({ label, count, active, onClick }: SidebarItemProps) {
   return (
     <button
       onClick={onClick}
-      className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
+      className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
         active ? 'bg-white/10 text-slate-100' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
       }`}
     >
