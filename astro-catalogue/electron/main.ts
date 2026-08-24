@@ -4,7 +4,7 @@ import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { initDb, getLastRoot, saveCatalogue, loadCatalogue } from './db'
 import { scanRoot } from './scanner'
-import { buildCopyPlan, executeCopy, listSourceDirectories } from './seestar'
+import { buildCopyPlan, executeCopy, listSourceDirectories, SEESTAR_SOURCE_DIR } from './seestar'
 import type { ObjectSummary, SeestarCopyItem } from './shared-types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -61,12 +61,11 @@ ipcMain.handle('get-catalogue', async () => {
   return { ...catalogue, rootPath: lastRoot }
 })
 
-const SEESTAR_UNC_PATH = String.raw`\\seestar`
 const SEESTAR_CHECK_TIMEOUT_MS = 5000
 
 ipcMain.handle('check-seestar-connection', async () => {
   const accessible = fs
-    .access(SEESTAR_UNC_PATH)
+    .access(SEESTAR_SOURCE_DIR)
     .then(() => true)
     .catch(() => false)
   const timedOut = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), SEESTAR_CHECK_TIMEOUT_MS))

@@ -139,8 +139,8 @@ export function SeestarView({ defaultTargetDirectory }: SeestarViewProps) {
         </div>
         <p className="mb-4 text-sm text-slate-500">
           {status === 'disconnected'
-            ? String.raw`Couldn't reach \\seestar on the network`
-            : String.raw`Looking for \\seestar`}
+            ? String.raw`Couldn't reach \\seestar\EMMC Images\MyWorks on the network`
+            : String.raw`Looking for \\seestar\EMMC Images\MyWorks`}
         </p>
         <button
           onClick={checkConnection}
