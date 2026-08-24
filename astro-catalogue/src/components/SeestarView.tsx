@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import type { SeestarCopyItem, SeestarCopyPlan, SeestarCopyProgress, SeestarSourceDirectory } from '../../electron/shared-types'
+import {
+  DEFAULT_SEESTAR_DIRECTORY_PATTERN,
+  type SeestarCopyItem,
+  type SeestarCopyPlan,
+  type SeestarCopyProgress,
+  type SeestarSourceDirectory,
+} from '../../electron/shared-types'
 
 type ConnectionStatus = 'checking' | 'connected' | 'disconnected'
 
@@ -16,6 +22,14 @@ export function SeestarView({ defaultTargetDirectory }: SeestarViewProps) {
   const [selectedSubDirs, setSelectedSubDirs] = useState<Set<string>>(new Set())
 
   const [targetDirectory, setTargetDirectory] = useState<string | null>(defaultTargetDirectory)
+  const [directoryPattern, setDirectoryPattern] = useState<string>(
+    () => localStorage.getItem('seestarDirectoryPattern') ?? DEFAULT_SEESTAR_DIRECTORY_PATTERN,
+  )
+
+  function handleDirectoryPatternChange(pattern: string) {
+    setDirectoryPattern(pattern)
+    localStorage.setItem('seestarDirectoryPattern', pattern)
+  }
 
   const [plan, setPlan] = useState<SeestarCopyPlan | null>(null)
   const [planLoading, setPlanLoading] = useState(false)
@@ -84,7 +98,7 @@ export function SeestarView({ defaultTargetDirectory }: SeestarViewProps) {
     setPlanError(null)
     setCopyResult(null)
     window.astroCatalogue
-      .buildSeestarCopyPlan(Array.from(selectedSubDirs), targetDirectory)
+      .buildSeestarCopyPlan(Array.from(selectedSubDirs), targetDirectory, directoryPattern)
       .then(setPlan)
       .catch((e) => setPlanError(String(e)))
       .finally(() => setPlanLoading(false))
@@ -116,7 +130,11 @@ export function SeestarView({ defaultTargetDirectory }: SeestarViewProps) {
       const result = await window.astroCatalogue.executeSeestarCopy(items, overwrite)
       setCopyResult(result.copiedCount)
       if (targetDirectory) {
-        const refreshed = await window.astroCatalogue.buildSeestarCopyPlan(Array.from(selectedSubDirs), targetDirectory)
+        const refreshed = await window.astroCatalogue.buildSeestarCopyPlan(
+          Array.from(selectedSubDirs),
+          targetDirectory,
+          directoryPattern,
+        )
         setPlan(refreshed)
       }
     } catch (e) {
@@ -235,6 +253,29 @@ export function SeestarView({ defaultTargetDirectory }: SeestarViewProps) {
         </div>
       </section>
 
+      <section className="rounded-xl border border-white/10 p-4">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Import directory pattern</h2>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={directoryPattern}
+            onChange={(e) => handleDirectoryPatternChange(e.target.value)}
+            className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 font-mono text-sm text-slate-200 placeholder:text-slate-500 focus:border-white/20 focus:outline-none"
+          />
+          <button
+            onClick={() => handleDirectoryPatternChange(DEFAULT_SEESTAR_DIRECTORY_PATTERN)}
+            className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10"
+          >
+            Reset
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          Tokens: <code className="text-slate-400">{'{object}'}</code> <code className="text-slate-400">{'{type}'}</code>{' '}
+          <code className="text-slate-400">{'{date}'}</code> <code className="text-slate-400">{'{exposure}'}</code>. Use{' '}
+          <code className="text-slate-400">/</code> to separate directory levels.
+        </p>
+      </section>
+
       <div>
         <button
           onClick={buildPlan}
@@ -313,10 +354,22 @@ export function SeestarView({ defaultTargetDirectory }: SeestarViewProps) {
               {copying ? 'Copying…' : `Copy ${newItems.length} fit file(s)`}
             </button>
 
-            {copying && copyProgress && (
-              <p className="mt-2 text-xs text-slate-500">
-                {copyProgress.copied} / {copyProgress.total} — {copyProgress.fileName}
-              </p>
+            {copying && (
+              <div className="mt-3">
+                <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                  <div
+                    className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all"
+                    style={{
+                      width: copyProgress ? `${Math.round((copyProgress.copied / copyProgress.total) * 100)}%` : '0%',
+                    }}
+                  />
+                </div>
+                <p className="mt-1 text-xs text-slate-500">
+                  {copyProgress
+                    ? `${copyProgress.copied} / ${copyProgress.total} — ${copyProgress.fileName}`
+                    : 'Starting…'}
+                </p>
+              </div>
             )}
             {copyError && <p className="mt-2 text-sm text-red-300">{copyError}</p>}
             {copyResult !== null && !copying && (

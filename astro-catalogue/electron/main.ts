@@ -85,9 +85,12 @@ ipcMain.handle('select-seestar-target-dir', async () => {
   return result.filePaths[0]
 })
 
-ipcMain.handle('build-seestar-copy-plan', async (_event, subDirNames: string[], targetDirectory: string) => {
-  return buildCopyPlan(subDirNames, targetDirectory)
-})
+ipcMain.handle(
+  'build-seestar-copy-plan',
+  async (_event, subDirNames: string[], targetDirectory: string, directoryPattern: string) => {
+    return buildCopyPlan(subDirNames, targetDirectory, directoryPattern)
+  },
+)
 
 ipcMain.handle('execute-seestar-copy', async (_event, items: SeestarCopyItem[], overwrite: boolean) => {
   const copiedCount = executeCopy(items, overwrite, (copied, total, fileName) => {

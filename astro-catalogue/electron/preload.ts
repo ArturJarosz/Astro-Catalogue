@@ -16,8 +16,8 @@ const api: AstroCatalogueApi = {
   checkSeestarConnection: () => ipcRenderer.invoke('check-seestar-connection'),
   listSeestarDirectories: () => ipcRenderer.invoke('list-seestar-directories'),
   selectSeestarTargetDir: () => ipcRenderer.invoke('select-seestar-target-dir'),
-  buildSeestarCopyPlan: (subDirNames: string[], targetDirectory: string) =>
-    ipcRenderer.invoke('build-seestar-copy-plan', subDirNames, targetDirectory),
+  buildSeestarCopyPlan: (subDirNames: string[], targetDirectory: string, directoryPattern: string) =>
+    ipcRenderer.invoke('build-seestar-copy-plan', subDirNames, targetDirectory, directoryPattern),
   executeSeestarCopy: (items: SeestarCopyItem[], overwrite: boolean) =>
     ipcRenderer.invoke('execute-seestar-copy', items, overwrite),
   onSeestarCopyProgress: (callback: (progress: SeestarCopyProgress) => void) => {

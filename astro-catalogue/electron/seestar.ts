@@ -1,12 +1,13 @@
 import fs from 'node:fs'
 import path from 'node:path'
-import type {
-  SeestarCopyItem,
-  SeestarCopyPlan,
-  SeestarInvalidFile,
-  SeestarSourceDirectory,
-  SeestarSubDirGroupSummary,
-  SeestarSubDirSummary,
+import {
+  DEFAULT_SEESTAR_DIRECTORY_PATTERN,
+  type SeestarCopyItem,
+  type SeestarCopyPlan,
+  type SeestarInvalidFile,
+  type SeestarSourceDirectory,
+  type SeestarSubDirGroupSummary,
+  type SeestarSubDirSummary,
 } from './shared-types'
 
 export const SEESTAR_SOURCE_DIR = String.raw`\\seestar\EMMC Images\MyWorks`
@@ -33,6 +34,26 @@ function formatTargetExposure(exposure: string): string {
   return `${trimmed}s`
 }
 
+interface DirectoryPatternValues {
+  object: string
+  type: string
+  date: string
+  exposure: string
+}
+
+function applyDirectoryPattern(pattern: string, values: DirectoryPatternValues): string[] {
+  const filled = pattern
+    .replaceAll('{object}', values.object)
+    .replaceAll('{type}', values.type)
+    .replaceAll('{date}', values.date)
+    .replaceAll('{exposure}', values.exposure)
+
+  return filled
+    .split(/[/\\]+/)
+    .map((segment) => segment.trim())
+    .filter((segment) => segment.length > 0)
+}
+
 export function listSourceDirectories(sourceDir: string = SEESTAR_SOURCE_DIR): SeestarSourceDirectory[] {
   const entries = fs.readdirSync(sourceDir, { withFileTypes: true }).filter((e) => e.isDirectory())
 
@@ -57,6 +78,7 @@ export function listSourceDirectories(sourceDir: string = SEESTAR_SOURCE_DIR): S
 export function buildCopyPlan(
   subDirNames: string[],
   targetDirectory: string,
+  directoryPattern: string = DEFAULT_SEESTAR_DIRECTORY_PATTERN,
   sourceDir: string = SEESTAR_SOURCE_DIR,
 ): SeestarCopyPlan {
   const invalidFiles: SeestarInvalidFile[] = []
@@ -90,9 +112,12 @@ export function buildCopyPlan(
 
       const destinationDirectory = path.win32.join(
         targetDirectory,
-        objectName,
-        type,
-        `${targetDate} ${type} ${targetExposure}`,
+        ...applyDirectoryPattern(directoryPattern, {
+          object: objectName,
+          type,
+          date: targetDate,
+          exposure: targetExposure,
+        }),
       )
       const destinationPath = path.win32.join(destinationDirectory, file.name)
 

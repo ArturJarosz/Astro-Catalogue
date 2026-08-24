@@ -48,6 +48,8 @@ export interface ObjectSummary {
   pageUrl: string | null
 }
 
+export const DEFAULT_SEESTAR_DIRECTORY_PATTERN = '{object}/{type}/{date} {type} {exposure}'
+
 export interface SeestarSourceDirectory {
   name: string
   isSub: boolean
@@ -112,7 +114,11 @@ export interface AstroCatalogueApi {
   checkSeestarConnection: () => Promise<boolean>
   listSeestarDirectories: () => Promise<SeestarSourceDirectory[]>
   selectSeestarTargetDir: () => Promise<string | null>
-  buildSeestarCopyPlan: (subDirNames: string[], targetDirectory: string) => Promise<SeestarCopyPlan>
+  buildSeestarCopyPlan: (
+    subDirNames: string[],
+    targetDirectory: string,
+    directoryPattern: string,
+  ) => Promise<SeestarCopyPlan>
   executeSeestarCopy: (items: SeestarCopyItem[], overwrite: boolean) => Promise<SeestarCopyResult>
   onSeestarCopyProgress: (callback: (progress: SeestarCopyProgress) => void) => () => void
 }
