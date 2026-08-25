@@ -53,11 +53,20 @@ export function MoonSeparationDetail({ object, observingLocation, nightMoonTrack
         <div className="flex items-center gap-1.5 text-slate-300">
           <span>🌙</span>
           <span className="tabular-nums">
-            Closest <span className="font-semibold text-slate-100">{Math.round(result.minSeparationDeg)}°</span> at{' '}
-            {formatTime(result.minSeparationTime)}
+            Now <span className="font-semibold text-slate-100">{Math.round(result.currentSeparationDeg)}°</span>
           </span>
         </div>
-        <div className="mt-0.5 tabular-nums text-slate-500">Averages {Math.round(result.avgSeparationDeg)}° while up tonight</div>
+        <div className="mt-0.5 space-y-0.5 tabular-nums text-slate-500">
+          <div>
+            Closest <span className="font-medium text-slate-300">{Math.round(result.minSeparationDeg)}°</span> at{' '}
+            {formatTime(result.minSeparationTime)}
+          </div>
+          <div>
+            Farthest <span className="font-medium text-slate-300">{Math.round(result.maxSeparationDeg)}°</span> at{' '}
+            {formatTime(result.maxSeparationTime)}
+          </div>
+          <div>Average {Math.round(result.avgSeparationDeg)}° while up tonight</div>
+        </div>
       </div>
       <div className="rounded-md bg-black/20 px-2 py-1.5 text-xs">
         <div className="flex items-center gap-1.5 text-slate-300">

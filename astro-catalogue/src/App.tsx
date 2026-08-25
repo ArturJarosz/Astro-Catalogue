@@ -19,7 +19,7 @@ import { SortControl } from './components/SortControl'
 import { ViewToggle, type ViewMode } from './components/ViewToggle'
 import { groupObjectsByCatalog } from './lib/groupObjects'
 import { formatMetrics, type MetricKey } from './lib/columns'
-import { computeNightMoonTrack } from './lib/moonSeparation'
+import { computeNightMoonTrack, getTonightWindowStart } from './lib/moonSeparation'
 import { compareObjects, type SortDirection, type SortKey } from './lib/sortObjects'
 
 export type ConnectionStatus = 'checking' | 'connected' | 'disconnected'
@@ -62,16 +62,16 @@ export default function App() {
     localStorage.setItem('observingLocation', JSON.stringify(location))
   }
 
-  // Recomputed once per calendar day (todayKey), shared by every object card/row so
-  // the Moon's position isn't recalculated per-object when rendering the catalogue list.
-  const todayKey = new Date().toDateString()
+  // Recomputed once per "night" (nightKey flips at local noon, not midnight — see
+  // getTonightWindowStart), shared by every object card/row and the detail popup so
+  // the Moon's position isn't recalculated per-object and both surfaces agree.
+  const nightKey = getTonightWindowStart(new Date()).toDateString()
   const nightMoonTrack = useMemo(() => {
     if (!observingLocation) return null
-    const now = new Date()
-    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    const dayStart = getTonightWindowStart(new Date())
     return computeNightMoonTrack(dayStart, observingLocation.latitude, observingLocation.longitude)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [observingLocation, todayKey])
+  }, [observingLocation, nightKey])
 
   const [moonPanelNights, setMoonPanelNights] = useState<number>(
     () => Number(localStorage.getItem('moonPanelNights')) || 3,
@@ -433,6 +433,7 @@ export default function App() {
           object={selectedObject}
           warnings={catalogue.warnings}
           observingLocation={observingLocation}
+          nightMoonTrack={nightMoonTrack}
           onClose={() => setSelectedObject(null)}
         />
       )}

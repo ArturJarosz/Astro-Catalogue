@@ -3,8 +3,8 @@ import type { ObjectInfo, ObjectSummary, WarningInfo } from '../../electron/shar
 import { AltitudeChart } from './AltitudeChart'
 import type { ObservingLocation } from './MoonPanel'
 import { formatAltitude, formatExposure, formatRa, formatSize } from '../lib/format'
-import { angularSeparationDeg, raDecToAltitude } from '../lib/astronomyMath'
-import { getMoonEquatorial } from '../lib/moon'
+import { raDecToAltitude } from '../lib/astronomyMath'
+import { getMoonSeparationForObject, type NightMoonTrackSample } from '../lib/moonSeparation'
 import { getObjectCoordinates } from '../lib/objectCoordinates'
 import { getObjectVisibility } from '../lib/objectVisibility'
 import { getObjectWarnings } from '../lib/warnings'
@@ -13,6 +13,7 @@ interface ObjectDetailModalProps {
   object: ObjectInfo
   warnings: WarningInfo[]
   observingLocation: ObservingLocation | null
+  nightMoonTrack: NightMoonTrackSample[] | null
   onClose: () => void
 }
 
@@ -21,7 +22,7 @@ function formatTime(date: Date | null): string {
   return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }
 
-export function ObjectDetailModal({ object, warnings, observingLocation, onClose }: ObjectDetailModalProps) {
+export function ObjectDetailModal({ object, warnings, observingLocation, nightMoonTrack, onClose }: ObjectDetailModalProps) {
   const [summary, setSummary] = useState<ObjectSummary | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(true)
   const objectWarnings = getObjectWarnings(object, warnings)
@@ -48,11 +49,19 @@ export function ObjectDetailModal({ object, warnings, observingLocation, onClose
     return raDecToAltitude(new Date(), coordinates.raDeg, coordinates.decDeg, observingLocation.latitude, observingLocation.longitude)
   }, [observingLocation, coordinates])
 
-  const currentMoonSeparationDeg = useMemo(() => {
-    if (!coordinates) return null
-    const moon = getMoonEquatorial(new Date())
-    return angularSeparationDeg(coordinates.raDeg, coordinates.decDeg, moon.raDeg, moon.decDeg)
-  }, [coordinates])
+  // Same night window + filter as the Planning card (MoonSeparationDetail/Badge use
+  // the identical function against the identical shared track), so the two surfaces
+  // never disagree about "tonight's" closest/average Moon separation.
+  const nightSeparation = useMemo(() => {
+    if (!observingLocation || !nightMoonTrack || !coordinates) return null
+    return getMoonSeparationForObject(
+      nightMoonTrack,
+      coordinates.raDeg,
+      coordinates.decDeg,
+      observingLocation.latitude,
+      observingLocation.longitude,
+    )
+  }, [observingLocation, nightMoonTrack, coordinates])
 
   useEffect(() => {
     let cancelled = false
@@ -154,8 +163,8 @@ export function ObjectDetailModal({ object, warnings, observingLocation, onClose
                 <p className="text-xs text-slate-500">No coordinate data available for this object.</p>
               ) : (
                 visibility && (
-                  <div className="rounded-md bg-black/20 p-3">
-                    <div className="mb-2 flex flex-wrap gap-x-5 gap-y-1 text-xs tabular-nums text-slate-300">
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-xs tabular-nums text-slate-300">
                       <span>
                         <span className="text-slate-500">RA </span>
                         {formatRa(coordinates.raDeg)}
@@ -176,19 +185,37 @@ export function ObjectDetailModal({ object, warnings, observingLocation, onClose
                         <span className="text-slate-500">Sets </span>
                         {visibility.alwaysUp ? 'never' : visibility.alwaysDown ? 'always down' : formatTime(visibility.set)}
                       </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-xs tabular-nums text-slate-300">
                       <span>
-                        <span className="text-slate-500">Moon </span>
-                        {currentMoonSeparationDeg !== null ? `${Math.round(currentMoonSeparationDeg)}°` : '—'}
-                        <span className="text-slate-500"> (avg </span>
-                        {Math.round(visibility.avgMoonSeparationDeg)}°<span className="text-slate-500">)</span>
+                        <span className="text-slate-500">Moon now </span>
+                        {nightSeparation ? `${Math.round(nightSeparation.currentSeparationDeg)}°` : '—'}
+                      </span>
+                      <span>
+                        <span className="text-slate-500">Closest </span>
+                        {nightSeparation
+                          ? `${Math.round(nightSeparation.minSeparationDeg)}° at ${formatTime(nightSeparation.minSeparationTime)}`
+                          : '—'}
+                      </span>
+                      <span>
+                        <span className="text-slate-500">Farthest </span>
+                        {nightSeparation
+                          ? `${Math.round(nightSeparation.maxSeparationDeg)}° at ${formatTime(nightSeparation.maxSeparationTime)}`
+                          : '—'}
+                      </span>
+                      <span>
+                        <span className="text-slate-500">Average </span>
+                        {nightSeparation ? `${Math.round(nightSeparation.avgSeparationDeg)}°` : '—'}
                       </span>
                     </div>
-                    <AltitudeChart visibility={visibility} windowStart={visibilityWindowStart} />
-                    <p className="mt-1 text-[10px] text-slate-600">
-                      Shaded regions are night (Sun below horizon). Closest to Moon: {Math.round(visibility.minMoonSeparationDeg)}° at{' '}
-                      {formatTime(visibility.minMoonSeparationTime)}, averaging {Math.round(visibility.avgMoonSeparationDeg)}° over the
-                      night. Approximate, computed locally — no network required.
-                    </p>
+                    <div className="rounded-md bg-black/20 p-3">
+                      <AltitudeChart visibility={visibility} windowStart={visibilityWindowStart} />
+                      <p className="mt-1 text-[10px] text-slate-600">
+                        Shaded regions are night (Sun below horizon).{' '}
+                        {!nightSeparation && 'Not above the horizon tonight. '}
+                        Approximate, computed locally — no network required.
+                      </p>
+                    </div>
                   </div>
                 )
               )}

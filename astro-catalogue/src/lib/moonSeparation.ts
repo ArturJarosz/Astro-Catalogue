@@ -13,6 +13,19 @@ export interface NightMoonTrackSample {
   sunAltitudeDeg: number
 }
 
+/**
+ * Anchors the "tonight" window at local noon, so [anchor, anchor + 24h)
+ * always contains exactly one full night (sunset -> sunrise) — never the
+ * tail of last night AND the start of tonight, which a plain calendar day
+ * (midnight -> midnight) would. Before noon, "tonight" is the night that
+ * started yesterday evening and is still in progress; from noon on, it's
+ * the upcoming one.
+ */
+export function getTonightWindowStart(now: Date): Date {
+  const noon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0)
+  return now.getTime() < noon.getTime() ? new Date(noon.getTime() - 24 * 3600000) : noon
+}
+
 function sunAltitude(date: Date, latDeg: number, lonDeg: number): number {
   const T = centuriesSinceJ2000(julianDate(date))
   const { ra, dec } = equatorialFromEcliptic(T, { longitude: sunEclipticLongitude(T), latitude: 0 })
@@ -35,9 +48,15 @@ export function computeNightMoonTrack(dayStart: Date, latDeg: number, lonDeg: nu
 }
 
 export interface MoonSeparationResult {
+  /** Separation right now (independent of the night track/filter). */
+  currentSeparationDeg: number
+  /** Smallest separation tonight — nearest approach, worst case for image quality. */
   minSeparationDeg: number
   minSeparationTime: Date
-  /** Mean separation across the same up-at-night samples used for minSeparationDeg. */
+  /** Largest separation tonight — farthest point, best case. Shown as "Farthest" in the UI. */
+  maxSeparationDeg: number
+  maxSeparationTime: Date
+  /** Mean separation across the same up-at-night samples used for min/maxSeparationDeg. */
   avgSeparationDeg: number
   /** Peak altitude (deg) across the same up-at-night samples. */
   maxAltitudeDeg: number
@@ -46,9 +65,12 @@ export interface MoonSeparationResult {
 }
 
 /**
- * Closest + average Moon separation, and peak + average altitude, while the
- * object is above the horizon during night (sunAltitudeDeg < 0). Returns
- * null if the object is never up at night in this track.
+ * Current, closest, farthest, and average Moon separation, plus peak +
+ * average altitude, while the object is above the horizon during night
+ * (sunAltitudeDeg < 0). Single source of truth for these numbers — the
+ * Planning card, the object detail popup, and the list badge all call this
+ * so they never disagree. Returns null if the object is never up at night
+ * in this track.
  */
 export function getMoonSeparationForObject(
   track: NightMoonTrackSample[],
@@ -59,6 +81,8 @@ export function getMoonSeparationForObject(
 ): MoonSeparationResult | null {
   let minSeparationDeg = Infinity
   let minSeparationTime: Date | null = null
+  let maxSeparationDeg = -Infinity
+  let maxSeparationTime: Date | null = null
   let separationSum = 0
   let maxAltitudeDeg = -Infinity
   let altitudeSum = 0
@@ -78,13 +102,23 @@ export function getMoonSeparationForObject(
       minSeparationDeg = separationDeg
       minSeparationTime = sample.time
     }
+    if (separationDeg > maxSeparationDeg) {
+      maxSeparationDeg = separationDeg
+      maxSeparationTime = sample.time
+    }
   }
 
-  if (!minSeparationTime) return null
+  if (!minSeparationTime || !maxSeparationTime) return null
+
+  const currentMoon = getMoonEquatorial(new Date())
+  const currentSeparationDeg = angularSeparationDeg(raDeg, decDeg, currentMoon.raDeg, currentMoon.decDeg)
 
   return {
+    currentSeparationDeg,
     minSeparationDeg,
     minSeparationTime,
+    maxSeparationDeg,
+    maxSeparationTime,
     avgSeparationDeg: separationSum / count,
     maxAltitudeDeg,
     avgAltitudeDeg: altitudeSum / count,

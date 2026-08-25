@@ -23,9 +23,6 @@ export interface ObjectVisibility {
   alwaysDown: boolean
   transitTime: Date
   transitAltitudeDeg: number
-  minMoonSeparationDeg: number
-  minMoonSeparationTime: Date
-  avgMoonSeparationDeg: number
 }
 
 function sunAltitude(date: Date, latDeg: number, lonDeg: number): number {
@@ -77,8 +74,6 @@ export function getObjectVisibility(
   const alwaysDown = samples.every((s) => s.altitudeDeg <= 0)
 
   const transit = samples.reduce((best, s) => (s.altitudeDeg > best.altitudeDeg ? s : best), samples[0])
-  const closestMoon = samples.reduce((best, s) => (s.moonSeparationDeg < best.moonSeparationDeg ? s : best), samples[0])
-  const avgMoonSeparationDeg = samples.reduce((sum, s) => sum + s.moonSeparationDeg, 0) / samples.length
 
   return {
     samples,
@@ -88,8 +83,5 @@ export function getObjectVisibility(
     alwaysDown,
     transitTime: transit.time,
     transitAltitudeDeg: transit.altitudeDeg,
-    minMoonSeparationDeg: closestMoon.moonSeparationDeg,
-    minMoonSeparationTime: closestMoon.time,
-    avgMoonSeparationDeg,
   }
 }
