@@ -110,15 +110,22 @@ export function equatorialFromEcliptic(T: number, { longitude, latitude }: Eclip
   return { ra, dec }
 }
 
-function moonEquatorial(date: Date) {
+export interface MoonEquatorial {
+  raDeg: number
+  decDeg: number
+}
+
+/** Moon's RA/Dec (degrees, apparent-of-date) at a given time. */
+export function getMoonEquatorial(date: Date): MoonEquatorial {
   const T = centuriesSinceJ2000(julianDate(date))
-  return equatorialFromEcliptic(T, moonPosition(T))
+  const { ra, dec } = equatorialFromEcliptic(T, moonPosition(T))
+  return { raDeg: ra, decDeg: dec }
 }
 
 /** Moon altitude in degrees above the horizon for an observer at (latDeg, lonDeg east-positive). */
 function moonAltitude(date: Date, latDeg: number, lonDeg: number): number {
-  const { ra, dec } = moonEquatorial(date)
-  return raDecToAltitude(date, ra, dec, latDeg, lonDeg)
+  const { raDeg, decDeg } = getMoonEquatorial(date)
+  return raDecToAltitude(date, raDeg, decDeg, latDeg, lonDeg)
 }
 
 // Approximate altitude of the horizon used for moonrise/set, accounting for the

@@ -1,6 +1,9 @@
 import type { ObjectInfo, WarningInfo } from '../../electron/shared-types'
 import { formatMetrics, type MetricKey } from '../lib/columns'
+import type { NightMoonTrackSample } from '../lib/moonSeparation'
 import { getObjectWarnings } from '../lib/warnings'
+import type { ObservingLocation } from './MoonPanel'
+import { MoonSeparationDetail } from './MoonSeparationDetail'
 
 interface ObjectCardProps {
   object: ObjectInfo
@@ -9,6 +12,10 @@ interface ObjectCardProps {
   visibleFrameTypes: Set<string>
   showTotal: boolean
   visibleMetrics: Set<MetricKey>
+  observingLocation: ObservingLocation | null
+  nightMoonTrack: NightMoonTrackSample[] | null
+  /** Planning view: swaps the frame-type breakdown for a Moon-distance readout. */
+  isPlanning: boolean
 }
 
 export function ObjectCard({
@@ -18,6 +25,9 @@ export function ObjectCard({
   visibleFrameTypes,
   showTotal,
   visibleMetrics,
+  observingLocation,
+  nightMoonTrack,
+  isPlanning,
 }: ObjectCardProps) {
   const grandTotalFrames = object.frameTypes.reduce((sum, ft) => sum + ft.totalFrames, 0)
   const grandTotalExposure = object.frameTypes.reduce((sum, ft) => sum + ft.totalExposureSeconds, 0)
@@ -38,22 +48,24 @@ export function ObjectCard({
       }}
       className="cursor-pointer rounded-lg border border-white/20 bg-slate-800 p-3 shadow-md transition hover:border-white/30 hover:bg-slate-700"
     >
-      <div className="mb-2 flex items-center justify-between gap-2">
-        <h3 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-slate-100">
-          <span className="truncate">
-            {object.name}
-            {object.isMosaic && <span className="text-slate-400"> (Mosaic)</span>}
-          </span>
-          {objectWarnings.length > 0 && (
-            <span
-              className="flex shrink-0 items-center gap-0.5 text-amber-400"
-              title={`${objectWarnings.length} warning${objectWarnings.length === 1 ? '' : 's'}`}
-            >
-              <span>⚠</span>
-              <span className="text-xs font-medium tabular-nums">{objectWarnings.length}</span>
+      <div className="mb-2 flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-slate-100">
+            <span className="truncate">
+              {object.name}
+              {object.isMosaic && <span className="text-slate-400"> (Mosaic)</span>}
             </span>
-          )}
-        </h3>
+            {objectWarnings.length > 0 && (
+              <span
+                className="flex shrink-0 items-center gap-0.5 text-amber-400"
+                title={`${objectWarnings.length} warning${objectWarnings.length === 1 ? '' : 's'}`}
+              >
+                <span>⚠</span>
+                <span className="text-xs font-medium tabular-nums">{objectWarnings.length}</span>
+              </span>
+            )}
+          </h3>
+        </div>
         {showTotal && (
           <span className="shrink-0 text-[11px] font-bold tabular-nums text-white">
             {formatMetrics(
@@ -68,7 +80,9 @@ export function ObjectCard({
         )}
       </div>
 
-      {visibleFrameTypeList.length === 0 ? (
+      {isPlanning ? (
+        <MoonSeparationDetail object={object} observingLocation={observingLocation} nightMoonTrack={nightMoonTrack} />
+      ) : visibleFrameTypeList.length === 0 ? (
         <p className="text-xs text-slate-500">No frame-type folders found</p>
       ) : (
         <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 rounded-md bg-black/20 px-2 py-1.5 text-xs tabular-nums">

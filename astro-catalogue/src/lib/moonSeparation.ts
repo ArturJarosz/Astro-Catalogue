@@ -1,0 +1,92 @@
+// Cheap "how close does the Moon get to this target tonight" check for list views.
+// Computes the Moon's position once per night/location (computeNightMoonTrack), then
+// each object only needs its own altitude + a separation lookup against that shared
+// track — avoids recomputing the Moon's position per object when rendering a list.
+
+import { angularSeparationDeg, centuriesSinceJ2000, julianDate, raDecToAltitude } from './astronomyMath'
+import { equatorialFromEcliptic, getMoonEquatorial, sunEclipticLongitude } from './moon'
+
+export interface NightMoonTrackSample {
+  time: Date
+  moonRaDeg: number
+  moonDecDeg: number
+  sunAltitudeDeg: number
+}
+
+function sunAltitude(date: Date, latDeg: number, lonDeg: number): number {
+  const T = centuriesSinceJ2000(julianDate(date))
+  const { ra, dec } = equatorialFromEcliptic(T, { longitude: sunEclipticLongitude(T), latitude: 0 })
+  return raDecToAltitude(date, ra, dec, latDeg, lonDeg)
+}
+
+/** Samples Moon position + Sun altitude every 15 min across [dayStart, dayStart + 24h). */
+export function computeNightMoonTrack(dayStart: Date, latDeg: number, lonDeg: number): NightMoonTrackSample[] {
+  const stepMinutes = 15
+  const stepsPerDay = (24 * 60) / stepMinutes
+  const track: NightMoonTrackSample[] = []
+
+  for (let i = 0; i <= stepsPerDay; i++) {
+    const time = new Date(dayStart.getTime() + i * stepMinutes * 60000)
+    const { raDeg, decDeg } = getMoonEquatorial(time)
+    track.push({ time, moonRaDeg: raDeg, moonDecDeg: decDeg, sunAltitudeDeg: sunAltitude(time, latDeg, lonDeg) })
+  }
+
+  return track
+}
+
+export interface MoonSeparationResult {
+  minSeparationDeg: number
+  minSeparationTime: Date
+  /** Mean separation across the same up-at-night samples used for minSeparationDeg. */
+  avgSeparationDeg: number
+  /** Peak altitude (deg) across the same up-at-night samples. */
+  maxAltitudeDeg: number
+  /** Mean altitude (deg) across the same up-at-night samples. */
+  avgAltitudeDeg: number
+}
+
+/**
+ * Closest + average Moon separation, and peak + average altitude, while the
+ * object is above the horizon during night (sunAltitudeDeg < 0). Returns
+ * null if the object is never up at night in this track.
+ */
+export function getMoonSeparationForObject(
+  track: NightMoonTrackSample[],
+  raDeg: number,
+  decDeg: number,
+  latDeg: number,
+  lonDeg: number,
+): MoonSeparationResult | null {
+  let minSeparationDeg = Infinity
+  let minSeparationTime: Date | null = null
+  let separationSum = 0
+  let maxAltitudeDeg = -Infinity
+  let altitudeSum = 0
+  let count = 0
+
+  for (const sample of track) {
+    if (sample.sunAltitudeDeg >= 0) continue
+    const altitudeDeg = raDecToAltitude(sample.time, raDeg, decDeg, latDeg, lonDeg)
+    if (altitudeDeg <= 0) continue
+
+    const separationDeg = angularSeparationDeg(raDeg, decDeg, sample.moonRaDeg, sample.moonDecDeg)
+    separationSum += separationDeg
+    altitudeSum += altitudeDeg
+    count += 1
+    if (altitudeDeg > maxAltitudeDeg) maxAltitudeDeg = altitudeDeg
+    if (separationDeg < minSeparationDeg) {
+      minSeparationDeg = separationDeg
+      minSeparationTime = sample.time
+    }
+  }
+
+  if (!minSeparationTime) return null
+
+  return {
+    minSeparationDeg,
+    minSeparationTime,
+    avgSeparationDeg: separationSum / count,
+    maxAltitudeDeg,
+    avgAltitudeDeg: altitudeSum / count,
+  }
+}

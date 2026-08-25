@@ -18,9 +18,20 @@ interface ConfigurationViewProps {
   onHighlightTonightChange: (highlight: boolean) => void
   showMoonPanel: boolean
   onShowMoonPanelChange: (show: boolean) => void
+  moonCautionThresholdDeg: number
+  onMoonCautionThresholdDegChange: (deg: number) => void
+  moonCloseThresholdDeg: number
+  onMoonCloseThresholdDegChange: (deg: number) => void
   seestarSourceDirectory: string
   onSeestarSourceDirectoryChange: (directory: string) => void
 }
+
+type ConfigTab = 'general' | 'planning'
+
+const CONFIG_TABS: { id: ConfigTab; label: string }[] = [
+  { id: 'general', label: 'General' },
+  { id: 'planning', label: 'Planning' },
+]
 
 const MOON_PANEL_NIGHTS_OPTIONS = [3, 5, 7, 10, 14]
 
@@ -59,13 +70,30 @@ export function ConfigurationView({
   onHighlightTonightChange,
   showMoonPanel,
   onShowMoonPanelChange,
+  moonCautionThresholdDeg,
+  onMoonCautionThresholdDegChange,
+  moonCloseThresholdDeg,
+  onMoonCloseThresholdDegChange,
   seestarSourceDirectory,
   onSeestarSourceDirectoryChange,
 }: ConfigurationViewProps) {
+  const [activeTab, setActiveTab] = useState<ConfigTab>('general')
   const [latInput, setLatInput] = useState(observingLocation ? String(observingLocation.latitude) : '')
   const [lonInput, setLonInput] = useState(observingLocation ? String(observingLocation.longitude) : '')
   const [sourceDirectoryInput, setSourceDirectoryInput] = useState(seestarSourceDirectory)
   const sourceDirectoryDirty = sourceDirectoryInput !== seestarSourceDirectory
+
+  function handleCautionThresholdChange(value: string) {
+    const deg = Number.parseFloat(value)
+    if (Number.isNaN(deg) || deg < 0) return
+    onMoonCautionThresholdDegChange(deg)
+  }
+
+  function handleCloseThresholdChange(value: string) {
+    const deg = Number.parseFloat(value)
+    if (Number.isNaN(deg) || deg < 0) return
+    onMoonCloseThresholdDegChange(deg)
+  }
 
   function applySourceDirectory() {
     const trimmed = sourceDirectoryInput.trim()
@@ -92,7 +120,26 @@ export function ConfigurationView({
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex gap-8">
+      <nav className="w-40 shrink-0 space-y-1">
+        {CONFIG_TABS.map((tab) => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
+              activeTab === tab.id
+                ? 'bg-white/10 text-slate-100'
+                : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+            }`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </nav>
+
+      <div className="min-w-0 flex-1 space-y-6">
+      {activeTab === 'general' && (
+      <>
       <section className="rounded-xl border border-white/10 p-4">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Seestar source path</h2>
         <div className="flex items-center gap-3">
@@ -203,7 +250,11 @@ export function ConfigurationView({
           </code>
         </p>
       </section>
+      </>
+      )}
 
+      {activeTab === 'planning' && (
+      <>
       <section className="rounded-xl border border-white/10 p-4">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Moon Panel</h2>
         <p className="mb-3 text-xs text-slate-500">
@@ -295,6 +346,48 @@ export function ConfigurationView({
           Highlight tonight's row with a larger font
         </label>
       </section>
+
+      <section className="rounded-xl border border-white/10 p-4">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Moon distance badge</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Controls the 🌙 Moon-distance badge shown on catalogue objects, and its color, based on how close the Moon
+          comes to a target while it's up tonight.
+        </p>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-xs text-slate-400">
+            Caution distance (°)
+            <input
+              type="number"
+              min={0}
+              max={180}
+              step={1}
+              value={moonCautionThresholdDeg}
+              onChange={(e) => handleCautionThresholdChange(e.target.value)}
+              className="w-24 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 focus:border-white/20 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-400">
+            Close distance (°)
+            <input
+              type="number"
+              min={0}
+              max={180}
+              step={1}
+              value={moonCloseThresholdDeg}
+              onChange={(e) => handleCloseThresholdChange(e.target.value)}
+              className="w-24 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 focus:border-white/20 focus:outline-none"
+            />
+          </label>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          A badge appears when the Moon comes within the caution distance; it turns red once it's within the close
+          distance.
+        </p>
+      </section>
+      </>
+      )}
+      </div>
     </div>
   )
 }

@@ -1,6 +1,9 @@
 import type { ObjectInfo, WarningInfo } from '../../electron/shared-types'
 import { formatMetrics, type MetricKey } from '../lib/columns'
+import type { NightMoonTrackSample } from '../lib/moonSeparation'
 import { getObjectWarnings } from '../lib/warnings'
+import type { ObservingLocation } from './MoonPanel'
+import { MoonSeparationBadge } from './MoonSeparationBadge'
 import { ObjectThumbnail } from './ObjectThumbnail'
 
 interface ObjectListTableProps {
@@ -11,6 +14,10 @@ interface ObjectListTableProps {
   visibleFrameTypes: Set<string>
   showTotal: boolean
   visibleMetrics: Set<MetricKey>
+  observingLocation: ObservingLocation | null
+  nightMoonTrack: NightMoonTrackSample[] | null
+  moonCautionThresholdDeg: number
+  moonCloseThresholdDeg: number
 }
 
 export function ObjectListTable({
@@ -21,6 +28,10 @@ export function ObjectListTable({
   visibleFrameTypes,
   showTotal,
   visibleMetrics,
+  observingLocation,
+  nightMoonTrack,
+  moonCautionThresholdDeg,
+  moonCloseThresholdDeg,
 }: ObjectListTableProps) {
   const frameTypeNames = Array.from(new Set(objects.flatMap((o) => o.frameTypes.map((ft) => ft.name))))
     .filter((name) => visibleFrameTypes.has(name))
@@ -83,6 +94,13 @@ export function ObjectListTable({
                         <span className="font-medium tabular-nums">{objectWarnings.length}</span>
                       </span>
                     )}
+                    <MoonSeparationBadge
+                      object={object}
+                      observingLocation={observingLocation}
+                      nightMoonTrack={nightMoonTrack}
+                      cautionThresholdDeg={moonCautionThresholdDeg}
+                      closeThresholdDeg={moonCloseThresholdDeg}
+                    />
                   </span>
                 </td>
                 {frameTypeNames.map((name) => {

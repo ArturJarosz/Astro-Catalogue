@@ -3,7 +3,8 @@ import type { ObjectInfo, ObjectSummary, WarningInfo } from '../../electron/shar
 import { AltitudeChart } from './AltitudeChart'
 import type { ObservingLocation } from './MoonPanel'
 import { formatAltitude, formatExposure, formatRa, formatSize } from '../lib/format'
-import { raDecToAltitude } from '../lib/astronomyMath'
+import { angularSeparationDeg, raDecToAltitude } from '../lib/astronomyMath'
+import { getMoonEquatorial } from '../lib/moon'
 import { getObjectCoordinates } from '../lib/objectCoordinates'
 import { getObjectVisibility } from '../lib/objectVisibility'
 import { getObjectWarnings } from '../lib/warnings'
@@ -46,6 +47,12 @@ export function ObjectDetailModal({ object, warnings, observingLocation, onClose
     if (!observingLocation || !coordinates) return null
     return raDecToAltitude(new Date(), coordinates.raDeg, coordinates.decDeg, observingLocation.latitude, observingLocation.longitude)
   }, [observingLocation, coordinates])
+
+  const currentMoonSeparationDeg = useMemo(() => {
+    if (!coordinates) return null
+    const moon = getMoonEquatorial(new Date())
+    return angularSeparationDeg(coordinates.raDeg, coordinates.decDeg, moon.raDeg, moon.decDeg)
+  }, [coordinates])
 
   useEffect(() => {
     let cancelled = false
@@ -169,10 +176,18 @@ export function ObjectDetailModal({ object, warnings, observingLocation, onClose
                         <span className="text-slate-500">Sets </span>
                         {visibility.alwaysUp ? 'never' : visibility.alwaysDown ? 'always down' : formatTime(visibility.set)}
                       </span>
+                      <span>
+                        <span className="text-slate-500">Moon </span>
+                        {currentMoonSeparationDeg !== null ? `${Math.round(currentMoonSeparationDeg)}°` : '—'}
+                        <span className="text-slate-500"> (avg </span>
+                        {Math.round(visibility.avgMoonSeparationDeg)}°<span className="text-slate-500">)</span>
+                      </span>
                     </div>
                     <AltitudeChart visibility={visibility} windowStart={visibilityWindowStart} />
                     <p className="mt-1 text-[10px] text-slate-600">
-                      Shaded regions are night (Sun below horizon). Approximate, computed locally — no network required.
+                      Shaded regions are night (Sun below horizon). Closest to Moon: {Math.round(visibility.minMoonSeparationDeg)}° at{' '}
+                      {formatTime(visibility.minMoonSeparationTime)}, averaging {Math.round(visibility.avgMoonSeparationDeg)}° over the
+                      night. Approximate, computed locally — no network required.
                     </p>
                   </div>
                 )

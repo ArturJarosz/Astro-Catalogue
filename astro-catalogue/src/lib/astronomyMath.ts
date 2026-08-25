@@ -36,3 +36,9 @@ export function raDecToAltitude(date: Date, raDeg: number, decDeg: number, latDe
   const h = hourAngle > 180 ? hourAngle - 360 : hourAngle
   return Math.asin(sinD(latDeg) * sinD(decDeg) + cosD(latDeg) * cosD(decDeg) * cosD(h)) / DEG
 }
+
+/** Great-circle angular separation in degrees between two RA/Dec positions (degrees). */
+export function angularSeparationDeg(ra1Deg: number, dec1Deg: number, ra2Deg: number, dec2Deg: number): number {
+  const cosSep = sinD(dec1Deg) * sinD(dec2Deg) + cosD(dec1Deg) * cosD(dec2Deg) * cosD(ra1Deg - ra2Deg)
+  return Math.acos(Math.min(1, Math.max(-1, cosSep))) / DEG
+}

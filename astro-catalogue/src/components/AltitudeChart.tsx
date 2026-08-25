@@ -9,7 +9,7 @@ interface AltitudeChartProps {
 const WIDTH = 640
 const HEIGHT = 220
 const PAD_LEFT = 34
-const PAD_RIGHT = 8
+const PAD_RIGHT = 30
 const PAD_TOP = 10
 const PAD_BOTTOM = 24
 const PLOT_WIDTH = WIDTH - PAD_LEFT - PAD_RIGHT
@@ -22,6 +22,13 @@ const WINDOW_MS = 24 * 60 * 60 * 1000
 const ALT_MIN = -5
 const ALT_MAX = 90
 const GRID_DEGREES = [0, 15, 30, 45, 60, 75, 90]
+
+// Moon separation shares the plot, on a secondary right-side axis. "Up is good"
+// here too — far from the Moon is plotted high, close to the Moon plotted low —
+// matching the altitude axis's "up is good" convention.
+const MOON_SEP_MIN = 0
+const MOON_SEP_MAX = 180
+const MOON_SEP_GRID_DEGREES = [0, 45, 90, 135, 180]
 
 // Day/night background fades gradually across twilight (Sun between these
 // altitudes) instead of snapping at the horizon.
@@ -43,6 +50,14 @@ function xForTime(time: Date, windowStart: Date): number {
 
 function yForAltitude(altitudeDeg: number): number {
   const frac = (altitudeDeg - ALT_MIN) / (ALT_MAX - ALT_MIN)
+  return PAD_TOP + (1 - frac) * PLOT_HEIGHT
+}
+
+// Plotted inverted (180° at top, 0° at bottom) so "up" reads as "far from the
+// Moon, good" on both axes, even though separation and altitude have opposite
+// "closer to N is better/worse" semantics.
+function yForMoonSeparation(separationDeg: number): number {
+  const frac = (separationDeg - MOON_SEP_MIN) / (MOON_SEP_MAX - MOON_SEP_MIN)
   return PAD_TOP + (1 - frac) * PLOT_HEIGHT
 }
 
@@ -72,6 +87,13 @@ export function AltitudeChart({ visibility, windowStart }: AltitudeChartProps) {
 
   const linePath = samples
     .map((s, i) => `${i === 0 ? 'M' : 'L'} ${xForTime(s.time, windowStart).toFixed(1)} ${yForAltitude(s.altitudeDeg).toFixed(1)}`)
+    .join(' ')
+
+  const moonSeparationPath = samples
+    .map(
+      (s, i) =>
+        `${i === 0 ? 'M' : 'L'} ${xForTime(s.time, windowStart).toFixed(1)} ${yForMoonSeparation(s.moonSeparationDeg).toFixed(1)}`,
+    )
     .join(' ')
 
   const horizonY = yForAltitude(0)
@@ -127,6 +149,19 @@ export function AltitudeChart({ visibility, windowStart }: AltitudeChartProps) {
         </text>
       ))}
 
+      {MOON_SEP_GRID_DEGREES.map((deg) => (
+        <text
+          key={deg}
+          x={PAD_LEFT + PLOT_WIDTH + 6}
+          y={yForMoonSeparation(deg)}
+          textAnchor="start"
+          dominantBaseline="middle"
+          className="fill-violet-300/70 text-[9px]"
+        >
+          {deg}°
+        </text>
+      ))}
+
       {hourTicks.map((h) => {
         const t = new Date(windowStart.getTime() + h * 3600000)
         const x = xForTime(t, windowStart)
@@ -138,6 +173,15 @@ export function AltitudeChart({ visibility, windowStart }: AltitudeChartProps) {
       })}
 
       <path d={areaPath} className="fill-white/10" clipPath={`url(#${clipId})`} />
+
+      <path
+        d={moonSeparationPath}
+        fill="none"
+        className="stroke-violet-300"
+        strokeWidth={1.5}
+        strokeDasharray="4 3"
+        clipPath={`url(#${clipId})`}
+      />
 
       <path d={linePath} fill="none" className="stroke-white" strokeWidth={2} clipPath={`url(#${clipId})`} />
 
@@ -157,6 +201,17 @@ export function AltitudeChart({ visibility, windowStart }: AltitudeChartProps) {
 
       {rise && <circle cx={xForTime(rise, windowStart)} cy={horizonY} r={3} className="fill-emerald-400" />}
       {set && <circle cx={xForTime(set, windowStart)} cy={horizonY} r={3} className="fill-rose-400" />}
+
+      <g transform={`translate(${PAD_LEFT}, ${PAD_TOP - 2})`}>
+        <line x1={0} x2={12} y1={0} y2={0} className="stroke-white" strokeWidth={2} />
+        <text x={16} y={0} dominantBaseline="middle" className="fill-slate-400 text-[8px]">
+          Altitude
+        </text>
+        <line x1={62} x2={74} y1={0} y2={0} className="stroke-violet-300" strokeWidth={1.5} strokeDasharray="4 3" />
+        <text x={78} y={0} dominantBaseline="middle" className="fill-violet-300/80 text-[8px]">
+          Moon separation
+        </text>
+      </g>
     </svg>
   )
 }

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   DEFAULT_SEESTAR_DIRECTORY_PATTERN,
   DEFAULT_SEESTAR_SOURCE_DIR,
@@ -19,6 +19,7 @@ import { SortControl } from './components/SortControl'
 import { ViewToggle, type ViewMode } from './components/ViewToggle'
 import { groupObjectsByCatalog } from './lib/groupObjects'
 import { formatMetrics, type MetricKey } from './lib/columns'
+import { computeNightMoonTrack } from './lib/moonSeparation'
 import { compareObjects, type SortDirection, type SortKey } from './lib/sortObjects'
 
 export type ConnectionStatus = 'checking' | 'connected' | 'disconnected'
@@ -61,6 +62,17 @@ export default function App() {
     localStorage.setItem('observingLocation', JSON.stringify(location))
   }
 
+  // Recomputed once per calendar day (todayKey), shared by every object card/row so
+  // the Moon's position isn't recalculated per-object when rendering the catalogue list.
+  const todayKey = new Date().toDateString()
+  const nightMoonTrack = useMemo(() => {
+    if (!observingLocation) return null
+    const now = new Date()
+    const dayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    return computeNightMoonTrack(dayStart, observingLocation.latitude, observingLocation.longitude)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [observingLocation, todayKey])
+
   const [moonPanelNights, setMoonPanelNights] = useState<number>(
     () => Number(localStorage.getItem('moonPanelNights')) || 3,
   )
@@ -77,6 +89,24 @@ export default function App() {
   function handleHighlightTonightChange(highlight: boolean) {
     setHighlightTonight(highlight)
     localStorage.setItem('moonPanelHighlightTonight', String(highlight))
+  }
+
+  const [moonCautionThresholdDeg, setMoonCautionThresholdDeg] = useState<number>(
+    () => Number(localStorage.getItem('moonCautionThresholdDeg')) || 30,
+  )
+
+  function handleMoonCautionThresholdDegChange(deg: number) {
+    setMoonCautionThresholdDeg(deg)
+    localStorage.setItem('moonCautionThresholdDeg', String(deg))
+  }
+
+  const [moonCloseThresholdDeg, setMoonCloseThresholdDeg] = useState<number>(
+    () => Number(localStorage.getItem('moonCloseThresholdDeg')) || 15,
+  )
+
+  function handleMoonCloseThresholdDegChange(deg: number) {
+    setMoonCloseThresholdDeg(deg)
+    localStorage.setItem('moonCloseThresholdDeg', String(deg))
   }
 
   const [showMoonPanel, setShowMoonPanel] = useState<boolean>(
@@ -242,6 +272,10 @@ export default function App() {
             onHighlightTonightChange={handleHighlightTonightChange}
             showMoonPanel={showMoonPanel}
             onShowMoonPanelChange={handleShowMoonPanelChange}
+            moonCautionThresholdDeg={moonCautionThresholdDeg}
+            onMoonCautionThresholdDegChange={handleMoonCautionThresholdDegChange}
+            moonCloseThresholdDeg={moonCloseThresholdDeg}
+            onMoonCloseThresholdDegChange={handleMoonCloseThresholdDegChange}
             seestarSourceDirectory={seestarSourceDirectory}
             onSeestarSourceDirectoryChange={handleSeestarSourceDirectoryChange}
           />
@@ -361,6 +395,9 @@ export default function App() {
                           visibleFrameTypes={effectiveSelectedFrameTypes}
                           showTotal={showTotal}
                           visibleMetrics={effectiveSelectedMetrics}
+                          observingLocation={observingLocation}
+                          nightMoonTrack={nightMoonTrack}
+                          isPlanning={isPlanning}
                         />
                       ))}
                     </div>
@@ -373,6 +410,10 @@ export default function App() {
                       visibleFrameTypes={effectiveSelectedFrameTypes}
                       showTotal={showTotal}
                       visibleMetrics={effectiveSelectedMetrics}
+                      observingLocation={observingLocation}
+                      nightMoonTrack={nightMoonTrack}
+                      moonCautionThresholdDeg={moonCautionThresholdDeg}
+                      moonCloseThresholdDeg={moonCloseThresholdDeg}
                     />
                   )}
                 </section>

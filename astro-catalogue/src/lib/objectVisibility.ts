@@ -3,13 +3,14 @@
 // sampling/crossing-detection approach used for the Moon in moon.ts, generalized
 // via raDecToAltitude since the object's RA/Dec doesn't move during a night.
 
-import { centuriesSinceJ2000, julianDate, raDecToAltitude } from './astronomyMath'
-import { equatorialFromEcliptic, sunEclipticLongitude } from './moon'
+import { angularSeparationDeg, centuriesSinceJ2000, julianDate, raDecToAltitude } from './astronomyMath'
+import { equatorialFromEcliptic, getMoonEquatorial, sunEclipticLongitude } from './moon'
 
 export interface ObjectAltitudeSample {
   time: Date
   altitudeDeg: number
   sunAltitudeDeg: number
+  moonSeparationDeg: number
 }
 
 export interface ObjectVisibility {
@@ -22,6 +23,9 @@ export interface ObjectVisibility {
   alwaysDown: boolean
   transitTime: Date
   transitAltitudeDeg: number
+  minMoonSeparationDeg: number
+  minMoonSeparationTime: Date
+  avgMoonSeparationDeg: number
 }
 
 function sunAltitude(date: Date, latDeg: number, lonDeg: number): number {
@@ -44,10 +48,12 @@ export function getObjectVisibility(
 
   for (let i = 0; i <= stepsPerDay; i++) {
     const time = new Date(dayStart.getTime() + i * stepMinutes * 60000)
+    const moon = getMoonEquatorial(time)
     samples.push({
       time,
       altitudeDeg: raDecToAltitude(time, raDeg, decDeg, latDeg, lonDeg),
       sunAltitudeDeg: sunAltitude(time, latDeg, lonDeg),
+      moonSeparationDeg: angularSeparationDeg(raDeg, decDeg, moon.raDeg, moon.decDeg),
     })
   }
 
@@ -71,6 +77,8 @@ export function getObjectVisibility(
   const alwaysDown = samples.every((s) => s.altitudeDeg <= 0)
 
   const transit = samples.reduce((best, s) => (s.altitudeDeg > best.altitudeDeg ? s : best), samples[0])
+  const closestMoon = samples.reduce((best, s) => (s.moonSeparationDeg < best.moonSeparationDeg ? s : best), samples[0])
+  const avgMoonSeparationDeg = samples.reduce((sum, s) => sum + s.moonSeparationDeg, 0) / samples.length
 
   return {
     samples,
@@ -80,5 +88,8 @@ export function getObjectVisibility(
     alwaysDown,
     transitTime: transit.time,
     transitAltitudeDeg: transit.altitudeDeg,
+    minMoonSeparationDeg: closestMoon.moonSeparationDeg,
+    minMoonSeparationTime: closestMoon.time,
+    avgMoonSeparationDeg,
   }
 }
