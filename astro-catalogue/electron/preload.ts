@@ -14,11 +14,17 @@ const api: AstroCatalogueApi = {
   getObjectSummary: (name: string, catalog: string, catalogNumber: number | null) =>
     ipcRenderer.invoke('get-object-summary', name, catalog, catalogNumber),
   openExternal: (url: string) => ipcRenderer.invoke('open-external', url),
-  checkSeestarConnection: () => ipcRenderer.invoke('check-seestar-connection'),
-  listSeestarDirectories: () => ipcRenderer.invoke('list-seestar-directories'),
+  checkSeestarConnection: (sourceDirectory: string) =>
+    ipcRenderer.invoke('check-seestar-connection', sourceDirectory),
+  listSeestarDirectories: (sourceDirectory: string) =>
+    ipcRenderer.invoke('list-seestar-directories', sourceDirectory),
   selectSeestarTargetDir: () => ipcRenderer.invoke('select-seestar-target-dir'),
-  buildSeestarCopyPlan: (subDirNames: string[], targetDirectory: string, directoryPattern: string) =>
-    ipcRenderer.invoke('build-seestar-copy-plan', subDirNames, targetDirectory, directoryPattern),
+  buildSeestarCopyPlan: (
+    subDirNames: string[],
+    targetDirectory: string,
+    directoryPattern: string,
+    sourceDirectory: string,
+  ) => ipcRenderer.invoke('build-seestar-copy-plan', subDirNames, targetDirectory, directoryPattern, sourceDirectory),
   executeSeestarCopy: (items: SeestarCopyItem[], overwrite: boolean) =>
     ipcRenderer.invoke('execute-seestar-copy', items, overwrite),
   onSeestarCopyProgress: (callback: (progress: SeestarCopyProgress) => void) => {

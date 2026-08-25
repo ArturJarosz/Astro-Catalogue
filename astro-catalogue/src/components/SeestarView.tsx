@@ -4,14 +4,18 @@ import type {
   SeestarCopyPlan,
   SeestarCopyProgress,
   SeestarSourceDirectory,
+  WarningInfo,
 } from '../../electron/shared-types'
 import type { ConnectionStatus } from '../App'
+import { WarningsPanel } from './WarningsPanel'
 
 interface SeestarViewProps {
   defaultTargetDirectory: string | null
   directoryPattern: string
   status: ConnectionStatus
   onCheckConnection: () => void
+  warnings: WarningInfo[]
+  sourceDirectory: string
 }
 
 export function SeestarView({
@@ -19,6 +23,8 @@ export function SeestarView({
   directoryPattern,
   status,
   onCheckConnection,
+  warnings,
+  sourceDirectory,
 }: SeestarViewProps) {
   const [directories, setDirectories] = useState<SeestarSourceDirectory[] | null>(null)
   const [dirsLoading, setDirsLoading] = useState(false)
@@ -47,14 +53,18 @@ export function SeestarView({
     setPlan(null)
     setCopyResult(null)
     window.astroCatalogue
-      .listSeestarDirectories()
+      .listSeestarDirectories(sourceDirectory)
       .then((dirs) => {
         setDirectories(dirs)
         setSelectedSubDirs(new Set(dirs.filter((d) => d.isSub).map((d) => d.name)))
       })
       .catch((e) => setDirsError(String(e)))
       .finally(() => setDirsLoading(false))
-  }, [])
+  }, [sourceDirectory])
+
+  useEffect(() => {
+    setDirectories(null)
+  }, [sourceDirectory])
 
   useEffect(() => {
     if (status === 'connected' && directories === null && !dirsLoading) {
@@ -82,7 +92,7 @@ export function SeestarView({
     setPlanError(null)
     setCopyResult(null)
     window.astroCatalogue
-      .buildSeestarCopyPlan(Array.from(selectedSubDirs), targetDirectory, directoryPattern)
+      .buildSeestarCopyPlan(Array.from(selectedSubDirs), targetDirectory, directoryPattern, sourceDirectory)
       .then(setPlan)
       .catch((e) => setPlanError(String(e)))
       .finally(() => setPlanLoading(false))
@@ -118,6 +128,7 @@ export function SeestarView({
           Array.from(selectedSubDirs),
           targetDirectory,
           directoryPattern,
+          sourceDirectory,
         )
         setPlan(refreshed)
       }
@@ -130,7 +141,9 @@ export function SeestarView({
 
   if (status !== 'connected') {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-24 text-center">
+      <div className="space-y-6">
+        <WarningsPanel warnings={warnings} />
+        <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-24 text-center">
         <div className="mb-4 flex items-center gap-2">
           <span
             className={`h-2.5 w-2.5 rounded-full ${status === 'checking' ? 'animate-pulse bg-slate-500' : 'bg-red-400'}`}
@@ -141,8 +154,8 @@ export function SeestarView({
         </div>
         <p className="mb-4 text-sm text-slate-500">
           {status === 'disconnected'
-            ? String.raw`Couldn't reach \\seestar\EMMC Images\MyWorks on the network`
-            : String.raw`Looking for \\seestar\EMMC Images\MyWorks`}
+            ? `Couldn't reach ${sourceDirectory} on the network`
+            : `Looking for ${sourceDirectory}`}
         </p>
         <button
           onClick={onCheckConnection}
@@ -151,12 +164,14 @@ export function SeestarView({
         >
           {status === 'checking' ? 'Checking…' : 'Check again'}
         </button>
+        </div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
+      <WarningsPanel warnings={warnings} />
       <div className="flex items-center gap-2 text-sm text-slate-300">
         <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
         Seestar connected

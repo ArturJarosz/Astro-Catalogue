@@ -10,6 +10,8 @@ interface HeaderProps {
   onAnalyze: () => void
   seestarStatus: ConnectionStatus
   onCheckSeestarConnection: () => void
+  warningCount: number
+  onWarningsClick: () => void
 }
 
 const SEESTAR_STATUS_LABEL: Record<ConnectionStatus, string> = {
@@ -33,6 +35,8 @@ export function Header({
   onAnalyze,
   seestarStatus,
   onCheckSeestarConnection,
+  warningCount,
+  onWarningsClick,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/80 backdrop-blur">
@@ -50,6 +54,22 @@ export function Header({
               <span className={`h-2 w-2 rounded-full ${SEESTAR_STATUS_DOT[seestarStatus]}`} />
               {SEESTAR_STATUS_LABEL[seestarStatus]}
             </button>
+            {warningCount > 0 && (
+              <button
+                onClick={onWarningsClick}
+                title={`${warningCount} import warning${warningCount === 1 ? '' : 's'}`}
+                className="flex items-center gap-1.5 rounded-full border border-amber-400/30 bg-amber-400/10 px-2.5 py-1 text-xs font-medium text-amber-300 transition hover:bg-amber-400/20"
+              >
+                <svg viewBox="0 0 20 20" fill="currentColor" className="h-3.5 w-3.5">
+                  <path
+                    fillRule="evenodd"
+                    d="M9.401 3.003c1.155-2 4.043-2 5.197 0l7.355 12.748c1.154 2-.29 4.5-2.599 4.5H4.645c-2.309 0-3.752-2.5-2.598-4.5L9.4 3.003ZM10 8a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 10 8Zm0 8a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                {warningCount}
+              </button>
+            )}
           </div>
           <p className="mt-1 text-sm text-slate-400">
             {rootPath ? (

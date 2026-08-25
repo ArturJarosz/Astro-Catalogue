@@ -1,10 +1,28 @@
-import { DEFAULT_SEESTAR_DIRECTORY_PATTERN } from '../../electron/shared-types'
+import { useState } from 'react'
+import {
+  DEFAULT_SEESTAR_DIRECTORY_PATTERN,
+  DEFAULT_SEESTAR_SOURCE_DIR_LINUX,
+  DEFAULT_SEESTAR_SOURCE_DIR_WINDOWS,
+} from '../../electron/shared-types'
+import type { ObservingLocation } from './MoonPanel'
 
 interface ConfigurationViewProps {
   directoryPattern: string
   onDirectoryPatternChange: (pattern: string) => void
   targetDirectory: string | null
+  observingLocation: ObservingLocation | null
+  onObservingLocationChange: (location: ObservingLocation) => void
+  moonPanelNights: number
+  onMoonPanelNightsChange: (nights: number) => void
+  highlightTonight: boolean
+  onHighlightTonightChange: (highlight: boolean) => void
+  showMoonPanel: boolean
+  onShowMoonPanelChange: (show: boolean) => void
+  seestarSourceDirectory: string
+  onSeestarSourceDirectoryChange: (directory: string) => void
 }
+
+const MOON_PANEL_NIGHTS_OPTIONS = [3, 5, 7, 10, 14]
 
 const PATTERN_EXAMPLE_VALUES = { object: 'M 51', type: 'LP', date: '2026.08.09', exposure: '20s' }
 
@@ -29,9 +47,90 @@ function previewPatternPath(pattern: string): string {
   return segments.join(' / ')
 }
 
-export function ConfigurationView({ directoryPattern, onDirectoryPatternChange, targetDirectory }: ConfigurationViewProps) {
+export function ConfigurationView({
+  directoryPattern,
+  onDirectoryPatternChange,
+  targetDirectory,
+  observingLocation,
+  onObservingLocationChange,
+  moonPanelNights,
+  onMoonPanelNightsChange,
+  highlightTonight,
+  onHighlightTonightChange,
+  showMoonPanel,
+  onShowMoonPanelChange,
+  seestarSourceDirectory,
+  onSeestarSourceDirectoryChange,
+}: ConfigurationViewProps) {
+  const [latInput, setLatInput] = useState(observingLocation ? String(observingLocation.latitude) : '')
+  const [lonInput, setLonInput] = useState(observingLocation ? String(observingLocation.longitude) : '')
+  const [sourceDirectoryInput, setSourceDirectoryInput] = useState(seestarSourceDirectory)
+  const sourceDirectoryDirty = sourceDirectoryInput !== seestarSourceDirectory
+
+  function applySourceDirectory() {
+    const trimmed = sourceDirectoryInput.trim()
+    if (!trimmed) return
+    onSeestarSourceDirectoryChange(trimmed)
+  }
+
+  function handleSaveLocation() {
+    const latitude = Number.parseFloat(latInput)
+    const longitude = Number.parseFloat(lonInput)
+    if (Number.isNaN(latitude) || Number.isNaN(longitude)) return
+    onObservingLocationChange({ latitude, longitude })
+  }
+
+  function handleUseCurrentLocation() {
+    if (!navigator.geolocation) return
+    navigator.geolocation.getCurrentPosition((position) => {
+      const latitude = Number(position.coords.latitude.toFixed(4))
+      const longitude = Number(position.coords.longitude.toFixed(4))
+      setLatInput(String(latitude))
+      setLonInput(String(longitude))
+      onObservingLocationChange({ latitude, longitude })
+    })
+  }
+
   return (
     <div className="space-y-6">
+      <section className="rounded-xl border border-white/10 p-4">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Seestar source path</h2>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={sourceDirectoryInput}
+            onChange={(e) => setSourceDirectoryInput(e.target.value)}
+            spellCheck={false}
+            className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 font-mono text-sm text-slate-200 placeholder:text-slate-500 focus:border-white/20 focus:outline-none"
+          />
+          <button
+            onClick={applySourceDirectory}
+            disabled={!sourceDirectoryDirty || sourceDirectoryInput.trim() === ''}
+            className="shrink-0 rounded-lg bg-gradient-to-r from-sky-500 to-indigo-500 px-3 py-1.5 text-xs font-medium text-white shadow-lg shadow-indigo-500/20 transition hover:from-sky-400 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            Save
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          The folder the app reads from when checking the Seestar connection and importing photos — this is where
+          your Seestar exposes its <code className="text-slate-400">MyWorks</code> folder, either as a network share
+          or a mounted/mapped local path.
+        </p>
+        <div className="mt-3 space-y-1 text-xs text-slate-500">
+          <p>
+            <span className="text-slate-400">Recommended on Windows:</span>{' '}
+            <code className="text-slate-300">{DEFAULT_SEESTAR_SOURCE_DIR_WINDOWS}</code>
+            {' — '}the Seestar's SMB share addressed directly by its hostname.
+          </p>
+          <p>
+            <span className="text-slate-400">Recommended on Linux:</span>{' '}
+            <code className="text-slate-300">{DEFAULT_SEESTAR_SOURCE_DIR_LINUX}</code>
+            {' — '}mount the same SMB share first (e.g. with <code className="text-slate-400">gvfs</code> or a{' '}
+            <code className="text-slate-400">cifs</code> mount) and point this at the mount point.
+          </p>
+        </div>
+      </section>
+
       <section className="rounded-xl border border-white/10 p-4">
         <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Directory pattern</h2>
         <div className="flex items-center gap-3">
@@ -103,6 +202,98 @@ export function ConfigurationView({ directoryPattern, onDirectoryPatternChange, 
             {targetDirectory ?? '<target directory>'} / {previewPatternPath(directoryPattern)}
           </code>
         </p>
+      </section>
+
+      <section className="rounded-xl border border-white/10 p-4">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Moon Panel</h2>
+        <p className="mb-3 text-xs text-slate-500">
+          Controls the "Next Good Nights" panel on the Catalogue tab, which shows moon illumination and rise/set
+          times.
+        </p>
+
+        <label className="mb-4 flex items-center gap-2 text-xs text-slate-400">
+          <input
+            type="checkbox"
+            checked={showMoonPanel}
+            onChange={(e) => onShowMoonPanelChange(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 accent-sky-500"
+          />
+          Show the Moon Panel on the Catalogue tab
+        </label>
+
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1 text-xs text-slate-400">
+            Latitude
+            <input
+              type="text"
+              inputMode="decimal"
+              value={latInput}
+              onChange={(e) => setLatInput(e.target.value)}
+              placeholder="e.g. 51.5074"
+              className="w-32 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 focus:border-white/20 focus:outline-none"
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-xs text-slate-400">
+            Longitude
+            <input
+              type="text"
+              inputMode="decimal"
+              value={lonInput}
+              onChange={(e) => setLonInput(e.target.value)}
+              placeholder="e.g. -0.1278"
+              className="w-32 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 focus:border-white/20 focus:outline-none"
+            />
+          </label>
+          <button
+            onClick={handleSaveLocation}
+            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10"
+          >
+            Save
+          </button>
+          <button
+            onClick={handleUseCurrentLocation}
+            className="rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10"
+          >
+            Use current location
+          </button>
+        </div>
+
+        {observingLocation && (
+          <p className="mt-2 text-xs text-slate-500">
+            Currently set to{' '}
+            <code className="text-slate-300">
+              {observingLocation.latitude}, {observingLocation.longitude}
+            </code>
+          </p>
+        )}
+
+        <div className="mt-4 flex items-center gap-3">
+          <label className="text-xs text-slate-400" htmlFor="moon-panel-nights">
+            Nights to show
+          </label>
+          <select
+            id="moon-panel-nights"
+            value={moonPanelNights}
+            onChange={(e) => onMoonPanelNightsChange(Number(e.target.value))}
+            className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 focus:border-white/20 focus:outline-none"
+          >
+            {MOON_PANEL_NIGHTS_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <label className="mt-4 flex items-center gap-2 text-xs text-slate-400">
+          <input
+            type="checkbox"
+            checked={highlightTonight}
+            onChange={(e) => onHighlightTonightChange(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 accent-sky-500"
+          />
+          Highlight tonight's row with a larger font
+        </label>
       </section>
     </div>
   )

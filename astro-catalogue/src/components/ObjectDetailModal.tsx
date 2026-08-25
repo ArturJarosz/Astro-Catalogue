@@ -1,18 +1,51 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { ObjectInfo, ObjectSummary, WarningInfo } from '../../electron/shared-types'
-import { formatExposure, formatSize } from '../lib/format'
+import { AltitudeChart } from './AltitudeChart'
+import type { ObservingLocation } from './MoonPanel'
+import { formatAltitude, formatExposure, formatRa, formatSize } from '../lib/format'
+import { raDecToAltitude } from '../lib/astronomyMath'
+import { getObjectCoordinates } from '../lib/objectCoordinates'
+import { getObjectVisibility } from '../lib/objectVisibility'
 import { getObjectWarnings } from '../lib/warnings'
 
 interface ObjectDetailModalProps {
   object: ObjectInfo
   warnings: WarningInfo[]
+  observingLocation: ObservingLocation | null
   onClose: () => void
 }
 
-export function ObjectDetailModal({ object, warnings, onClose }: ObjectDetailModalProps) {
+function formatTime(date: Date | null): string {
+  if (!date) return '—'
+  return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
+}
+
+export function ObjectDetailModal({ object, warnings, observingLocation, onClose }: ObjectDetailModalProps) {
   const [summary, setSummary] = useState<ObjectSummary | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(true)
   const objectWarnings = getObjectWarnings(object, warnings)
+
+  const coordinates = useMemo(() => getObjectCoordinates(object.catalog, object.catalogNumber), [object.catalog, object.catalogNumber])
+
+  // Window starts 1h before now (not local midnight) so the chart looks mostly
+  // forward at what's plannable tonight, with just a sliver of recent past for context.
+  const visibilityWindowStart = useMemo(() => new Date(Date.now() - 3600000), [])
+
+  const visibility = useMemo(() => {
+    if (!observingLocation || !coordinates) return null
+    return getObjectVisibility(
+      visibilityWindowStart,
+      coordinates.raDeg,
+      coordinates.decDeg,
+      observingLocation.latitude,
+      observingLocation.longitude,
+    )
+  }, [observingLocation, coordinates, visibilityWindowStart])
+
+  const currentAltitudeDeg = useMemo(() => {
+    if (!observingLocation || !coordinates) return null
+    return raDecToAltitude(new Date(), coordinates.raDeg, coordinates.decDeg, observingLocation.latitude, observingLocation.longitude)
+  }, [observingLocation, coordinates])
 
   useEffect(() => {
     let cancelled = false
@@ -104,6 +137,48 @@ export function ObjectDetailModal({ object, warnings, onClose }: ObjectDetailMod
           </div>
 
           <div className="min-w-0 flex-1 space-y-5">
+            <div>
+              <h3 className="mb-2 text-sm font-semibold text-slate-200">Visibility Today</h3>
+              {!observingLocation ? (
+                <p className="text-xs text-slate-500">
+                  Set your observing location in the Configuration tab to see when this object is up.
+                </p>
+              ) : !coordinates ? (
+                <p className="text-xs text-slate-500">No coordinate data available for this object.</p>
+              ) : (
+                visibility && (
+                  <div className="rounded-md bg-black/20 p-3">
+                    <div className="mb-2 flex flex-wrap gap-x-5 gap-y-1 text-xs tabular-nums text-slate-300">
+                      <span>
+                        <span className="text-slate-500">RA </span>
+                        {formatRa(coordinates.raDeg)}
+                      </span>
+                      <span>
+                        <span className="text-slate-500">Alt </span>
+                        {currentAltitudeDeg !== null ? formatAltitude(currentAltitudeDeg) : '—'}
+                      </span>
+                      <span>
+                        <span className="text-slate-500">Rises </span>
+                        {visibility.alwaysUp ? 'always up' : visibility.alwaysDown ? 'never' : formatTime(visibility.rise)}
+                      </span>
+                      <span>
+                        <span className="text-slate-500">Peak </span>
+                        {Math.round(visibility.transitAltitudeDeg)}° at {formatTime(visibility.transitTime)}
+                      </span>
+                      <span>
+                        <span className="text-slate-500">Sets </span>
+                        {visibility.alwaysUp ? 'never' : visibility.alwaysDown ? 'always down' : formatTime(visibility.set)}
+                      </span>
+                    </div>
+                    <AltitudeChart visibility={visibility} windowStart={visibilityWindowStart} />
+                    <p className="mt-1 text-[10px] text-slate-600">
+                      Shaded regions are night (Sun below horizon). Approximate, computed locally — no network required.
+                    </p>
+                  </div>
+                )
+              )}
+            </div>
+
             {object.frameTypes.length === 0 ? (
               <p className="text-sm text-slate-500">No frame-type folders found</p>
             ) : (

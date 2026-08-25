@@ -50,6 +50,10 @@ export interface ObjectSummary {
 
 export const DEFAULT_SEESTAR_DIRECTORY_PATTERN = '{object}/{type}/{date} {type} {exposure}'
 
+export const DEFAULT_SEESTAR_SOURCE_DIR_WINDOWS = String.raw`\\seestar\EMMC Images\MyWorks`
+export const DEFAULT_SEESTAR_SOURCE_DIR_LINUX = '/mnt/seestar/EMMC Images/MyWorks'
+export const DEFAULT_SEESTAR_SOURCE_DIR = DEFAULT_SEESTAR_SOURCE_DIR_WINDOWS
+
 export interface SeestarSourceDirectory {
   name: string
   isSub: boolean
@@ -111,13 +115,14 @@ export interface AstroCatalogueApi {
   onScanProgress: (callback: (progress: ScanProgress) => void) => () => void
   getObjectSummary: (name: string, catalog: string, catalogNumber: number | null) => Promise<ObjectSummary | null>
   openExternal: (url: string) => Promise<void>
-  checkSeestarConnection: () => Promise<boolean>
-  listSeestarDirectories: () => Promise<SeestarSourceDirectory[]>
+  checkSeestarConnection: (sourceDirectory: string) => Promise<boolean>
+  listSeestarDirectories: (sourceDirectory: string) => Promise<SeestarSourceDirectory[]>
   selectSeestarTargetDir: () => Promise<string | null>
   buildSeestarCopyPlan: (
     subDirNames: string[],
     targetDirectory: string,
     directoryPattern: string,
+    sourceDirectory: string,
   ) => Promise<SeestarCopyPlan>
   executeSeestarCopy: (items: SeestarCopyItem[], overwrite: boolean) => Promise<SeestarCopyResult>
   onSeestarCopyProgress: (callback: (progress: SeestarCopyProgress) => void) => () => void

@@ -3,6 +3,7 @@ import path from 'node:path'
 import { applyDirectoryPattern } from './directory-pattern'
 import {
   DEFAULT_SEESTAR_DIRECTORY_PATTERN,
+  DEFAULT_SEESTAR_SOURCE_DIR,
   type SeestarCopyItem,
   type SeestarCopyPlan,
   type SeestarInvalidFile,
@@ -11,7 +12,7 @@ import {
   type SeestarSubDirSummary,
 } from './shared-types'
 
-export const SEESTAR_SOURCE_DIR = String.raw`\\seestar\EMMC Images\MyWorks`
+export const SEESTAR_SOURCE_DIR = DEFAULT_SEESTAR_SOURCE_DIR
 
 const SUB_SUFFIX = '_sub'
 const FILE_PATTERN =
@@ -40,7 +41,7 @@ export function listSourceDirectories(sourceDir: string = SEESTAR_SOURCE_DIR): S
 
   return entries
     .map((entry) => {
-      const dirPath = path.win32.join(sourceDir, entry.name)
+      const dirPath = path.join(sourceDir, entry.name)
       const files = fs.readdirSync(dirPath, { withFileTypes: true }).filter((e) => e.isFile())
       const jpgFiles = files.filter((f) => path.extname(f.name).toLowerCase() === '.jpg').length
       const fitFiles = files.filter((f) => path.extname(f.name).toLowerCase() === '.fit').length
@@ -67,7 +68,7 @@ export function buildCopyPlan(
   const subDirSummaries: SeestarSubDirSummary[] = []
 
   for (const subDirName of subDirNames) {
-    const subDirPath = path.win32.join(sourceDir, subDirName)
+    const subDirPath = path.join(sourceDir, subDirName)
     const objectName = objectNameFromSubDirectory(subDirName)
     const files = fs.readdirSync(subDirPath, { withFileTypes: true }).filter((e) => e.isFile())
     const groups = new Map<string, SeestarSubDirGroupSummary>()
@@ -91,7 +92,7 @@ export function buildCopyPlan(
 
       if (extension !== 'fit') continue
 
-      const destinationDirectory = path.win32.join(
+      const destinationDirectory = path.join(
         targetDirectory,
         ...applyDirectoryPattern(directoryPattern, {
           object: objectName,
@@ -100,10 +101,10 @@ export function buildCopyPlan(
           exposure: targetExposure,
         }),
       )
-      const destinationPath = path.win32.join(destinationDirectory, file.name)
+      const destinationPath = path.join(destinationDirectory, file.name)
 
       copyItems.push({
-        sourcePath: path.win32.join(subDirPath, file.name),
+        sourcePath: path.join(subDirPath, file.name),
         destinationPath,
         destinationDirectory,
         fileName: file.name,

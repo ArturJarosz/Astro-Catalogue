@@ -31,3 +31,29 @@ export function formatTimestamp(iso: string | null): string {
   if (!iso) return 'never'
   return new Date(iso).toLocaleString()
 }
+
+/** Formats right ascension (degrees, J2000) as sexagesimal hours, e.g. "05h 34m 32s". */
+export function formatRa(raDeg: number): string {
+  const totalHours = raDeg / 15
+  const hours = Math.floor(totalHours)
+  const totalMinutes = (totalHours - hours) * 60
+  const minutes = Math.floor(totalMinutes)
+  const seconds = Math.round((totalMinutes - minutes) * 60)
+  return `${String(hours).padStart(2, '0')}h ${String(minutes).padStart(2, '0')}m ${String(seconds).padStart(2, '0')}s`
+}
+
+/** Formats declination (degrees, J2000) as sexagesimal degrees, e.g. "+22° 00' 52\"". */
+export function formatDec(decDeg: number): string {
+  const sign = decDeg < 0 ? '-' : '+'
+  const abs = Math.abs(decDeg)
+  const degrees = Math.floor(abs)
+  const totalMinutes = (abs - degrees) * 60
+  const minutes = Math.floor(totalMinutes)
+  const seconds = Math.round((totalMinutes - minutes) * 60)
+  return `${sign}${String(degrees).padStart(2, '0')}° ${String(minutes).padStart(2, '0')}' ${String(seconds).padStart(2, '0')}"`
+}
+
+/** Formats an altitude in degrees, e.g. "34°". */
+export function formatAltitude(altitudeDeg: number): string {
+  return `${Math.round(altitudeDeg)}°`
+}

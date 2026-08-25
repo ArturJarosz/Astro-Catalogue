@@ -63,17 +63,17 @@ ipcMain.handle('get-catalogue', async () => {
 
 const SEESTAR_CHECK_TIMEOUT_MS = 5000
 
-ipcMain.handle('check-seestar-connection', async () => {
+ipcMain.handle('check-seestar-connection', async (_event, sourceDirectory: string = SEESTAR_SOURCE_DIR) => {
   const accessible = fs
-    .access(SEESTAR_SOURCE_DIR)
+    .access(sourceDirectory)
     .then(() => true)
     .catch(() => false)
   const timedOut = new Promise<boolean>((resolve) => setTimeout(() => resolve(false), SEESTAR_CHECK_TIMEOUT_MS))
   return Promise.race([accessible, timedOut])
 })
 
-ipcMain.handle('list-seestar-directories', async () => {
-  return listSourceDirectories()
+ipcMain.handle('list-seestar-directories', async (_event, sourceDirectory: string = SEESTAR_SOURCE_DIR) => {
+  return listSourceDirectories(sourceDirectory)
 })
 
 ipcMain.handle('select-seestar-target-dir', async () => {
@@ -87,8 +87,14 @@ ipcMain.handle('select-seestar-target-dir', async () => {
 
 ipcMain.handle(
   'build-seestar-copy-plan',
-  async (_event, subDirNames: string[], targetDirectory: string, directoryPattern: string) => {
-    return buildCopyPlan(subDirNames, targetDirectory, directoryPattern)
+  async (
+    _event,
+    subDirNames: string[],
+    targetDirectory: string,
+    directoryPattern: string,
+    sourceDirectory: string = SEESTAR_SOURCE_DIR,
+  ) => {
+    return buildCopyPlan(subDirNames, targetDirectory, directoryPattern, sourceDirectory)
   },
 )
 

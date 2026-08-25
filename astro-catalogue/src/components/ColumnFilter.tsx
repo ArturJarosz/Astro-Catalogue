@@ -9,6 +9,7 @@ interface ColumnFilterProps {
   onToggleTotal: () => void
   selectedMetrics: Set<MetricKey>
   onToggleMetric: (key: MetricKey) => void
+  hiddenMetrics?: Set<MetricKey>
 }
 
 export function ColumnFilter({
@@ -19,7 +20,9 @@ export function ColumnFilter({
   onToggleTotal,
   selectedMetrics,
   onToggleMetric,
+  hiddenMetrics,
 }: ColumnFilterProps) {
+  const metricOptions = hiddenMetrics ? METRIC_OPTIONS.filter((opt) => !hiddenMetrics.has(opt.key)) : METRIC_OPTIONS
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
@@ -66,7 +69,7 @@ export function ColumnFilter({
 
           <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">Show</p>
           <div className="flex flex-col gap-1">
-            {METRIC_OPTIONS.map((opt) => (
+            {metricOptions.map((opt) => (
               <label key={opt.key} className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
                 <input
                   type="checkbox"

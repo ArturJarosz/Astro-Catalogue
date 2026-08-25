@@ -1,9 +1,15 @@
 import { useCallback, useEffect, useState } from 'react'
-import { DEFAULT_SEESTAR_DIRECTORY_PATTERN, type CatalogueData, type ObjectInfo } from '../electron/shared-types'
+import {
+  DEFAULT_SEESTAR_DIRECTORY_PATTERN,
+  DEFAULT_SEESTAR_SOURCE_DIR,
+  type CatalogueData,
+  type ObjectInfo,
+} from '../electron/shared-types'
 import { AppNav, type AppSection } from './components/AppNav'
 import { ColumnFilter } from './components/ColumnFilter'
 import { ConfigurationView } from './components/ConfigurationView'
 import { Header } from './components/Header'
+import { MoonPanel, type ObservingLocation } from './components/MoonPanel'
 import { ObjectCard } from './components/ObjectCard'
 import { ObjectDetailModal } from './components/ObjectDetailModal'
 import { ObjectListTable } from './components/ObjectListTable'
@@ -11,7 +17,6 @@ import { SeestarView } from './components/SeestarView'
 import { Sidebar } from './components/Sidebar'
 import { SortControl } from './components/SortControl'
 import { ViewToggle, type ViewMode } from './components/ViewToggle'
-import { WarningsPanel } from './components/WarningsPanel'
 import { groupObjectsByCatalog } from './lib/groupObjects'
 import { formatMetrics, type MetricKey } from './lib/columns'
 import { compareObjects, type SortDirection, type SortKey } from './lib/sortObjects'
@@ -46,15 +51,61 @@ export default function App() {
     localStorage.setItem('seestarDirectoryPattern', pattern)
   }
 
+  const [observingLocation, setObservingLocation] = useState<ObservingLocation | null>(() => {
+    const stored = localStorage.getItem('observingLocation')
+    return stored ? (JSON.parse(stored) as ObservingLocation) : null
+  })
+
+  function handleObservingLocationChange(location: ObservingLocation) {
+    setObservingLocation(location)
+    localStorage.setItem('observingLocation', JSON.stringify(location))
+  }
+
+  const [moonPanelNights, setMoonPanelNights] = useState<number>(
+    () => Number(localStorage.getItem('moonPanelNights')) || 3,
+  )
+
+  function handleMoonPanelNightsChange(nights: number) {
+    setMoonPanelNights(nights)
+    localStorage.setItem('moonPanelNights', String(nights))
+  }
+
+  const [highlightTonight, setHighlightTonight] = useState<boolean>(
+    () => (localStorage.getItem('moonPanelHighlightTonight') ?? 'true') === 'true',
+  )
+
+  function handleHighlightTonightChange(highlight: boolean) {
+    setHighlightTonight(highlight)
+    localStorage.setItem('moonPanelHighlightTonight', String(highlight))
+  }
+
+  const [showMoonPanel, setShowMoonPanel] = useState<boolean>(
+    () => (localStorage.getItem('showMoonPanel') ?? 'true') === 'true',
+  )
+
+  function handleShowMoonPanelChange(show: boolean) {
+    setShowMoonPanel(show)
+    localStorage.setItem('showMoonPanel', String(show))
+  }
+
+  const [seestarSourceDirectory, setSeestarSourceDirectory] = useState<string>(
+    () => localStorage.getItem('seestarSourceDirectory') ?? DEFAULT_SEESTAR_SOURCE_DIR,
+  )
+
+  function handleSeestarSourceDirectoryChange(directory: string) {
+    setSeestarSourceDirectory(directory)
+    localStorage.setItem('seestarSourceDirectory', directory)
+  }
+
   const [seestarStatus, setSeestarStatus] = useState<ConnectionStatus>('checking')
 
   const checkSeestarConnection = useCallback(() => {
     setSeestarStatus('checking')
     window.astroCatalogue
-      .checkSeestarConnection()
+      .checkSeestarConnection(seestarSourceDirectory)
       .then((connected) => setSeestarStatus(connected ? 'connected' : 'disconnected'))
       .catch(() => setSeestarStatus('disconnected'))
-  }, [])
+  }, [seestarSourceDirectory])
 
   useEffect(() => {
     checkSeestarConnection()
@@ -145,6 +196,10 @@ export default function App() {
     ? Array.from(new Set(catalogue.objects.flatMap((o) => o.frameTypes.map((ft) => ft.name)))).sort()
     : []
   const effectiveSelectedFrameTypes = selectedFrameTypes ?? new Set(allFrameTypeNames)
+  const isPlanning = activeSection === 'planning'
+  const effectiveSelectedMetrics = isPlanning
+    ? new Set([...selectedMetrics].filter((m) => m !== 'size'))
+    : selectedMetrics
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -157,6 +212,8 @@ export default function App() {
         onAnalyze={handleAnalyze}
         seestarStatus={seestarStatus}
         onCheckSeestarConnection={checkSeestarConnection}
+        warningCount={catalogue?.warnings.length ?? 0}
+        onWarningsClick={() => setActiveSection('seestar')}
       />
 
       <div className="mx-auto flex max-w-[96rem] gap-8 px-6 py-8">
@@ -169,12 +226,24 @@ export default function App() {
             directoryPattern={directoryPattern}
             status={seestarStatus}
             onCheckConnection={checkSeestarConnection}
+            warnings={catalogue?.warnings ?? []}
+            sourceDirectory={seestarSourceDirectory}
           />
         ) : activeSection === 'configuration' ? (
           <ConfigurationView
             directoryPattern={directoryPattern}
             onDirectoryPatternChange={handleDirectoryPatternChange}
             targetDirectory={catalogue?.rootPath ?? null}
+            observingLocation={observingLocation}
+            onObservingLocationChange={handleObservingLocationChange}
+            moonPanelNights={moonPanelNights}
+            onMoonPanelNightsChange={handleMoonPanelNightsChange}
+            highlightTonight={highlightTonight}
+            onHighlightTonightChange={handleHighlightTonightChange}
+            showMoonPanel={showMoonPanel}
+            onShowMoonPanelChange={handleShowMoonPanelChange}
+            seestarSourceDirectory={seestarSourceDirectory}
+            onSeestarSourceDirectoryChange={handleSeestarSourceDirectoryChange}
           />
         ) : (
         <>
@@ -189,14 +258,18 @@ export default function App() {
           </div>
         )}
 
+        {activeSection === 'planning' && showMoonPanel && (
+          <div className="mb-6">
+            <MoonPanel location={observingLocation} nights={moonPanelNights} highlightTonight={highlightTonight} />
+          </div>
+        )}
+
         <main className="min-w-0">
           {error && (
             <div className="mb-6 rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-300">
               {error}
             </div>
           )}
-
-          {catalogue && <WarningsPanel warnings={catalogue.warnings} />}
 
           {catalogue && catalogue.objects.length > 0 && (
             <div className="mb-6 flex items-center justify-between gap-3">
@@ -220,8 +293,9 @@ export default function App() {
                   onToggleFrameType={handleToggleFrameType}
                   showTotal={showTotal}
                   onToggleTotal={() => setShowTotal((s) => !s)}
-                  selectedMetrics={selectedMetrics}
+                  selectedMetrics={effectiveSelectedMetrics}
                   onToggleMetric={handleToggleMetric}
+                  hiddenMetrics={isPlanning ? new Set<MetricKey>(['size']) : undefined}
                 />
                 <ViewToggle value={viewMode} onChange={handleViewModeChange} />
               </div>
@@ -271,7 +345,7 @@ export default function App() {
                             totalExposureSeconds: groupTotalExposure,
                             totalSizeBytes: groupTotalSize,
                           },
-                          selectedMetrics,
+                          effectiveSelectedMetrics,
                         )}
                       </span>
                     )}
@@ -286,7 +360,7 @@ export default function App() {
                           onClick={() => setSelectedObject(object)}
                           visibleFrameTypes={effectiveSelectedFrameTypes}
                           showTotal={showTotal}
-                          visibleMetrics={selectedMetrics}
+                          visibleMetrics={effectiveSelectedMetrics}
                         />
                       ))}
                     </div>
@@ -298,7 +372,7 @@ export default function App() {
                       showThumbnails={viewMode === 'thumbnail-list'}
                       visibleFrameTypes={effectiveSelectedFrameTypes}
                       showTotal={showTotal}
-                      visibleMetrics={selectedMetrics}
+                      visibleMetrics={effectiveSelectedMetrics}
                     />
                   )}
                 </section>
@@ -317,6 +391,7 @@ export default function App() {
           key={selectedObject.path}
           object={selectedObject}
           warnings={catalogue.warnings}
+          observingLocation={observingLocation}
           onClose={() => setSelectedObject(null)}
         />
       )}
