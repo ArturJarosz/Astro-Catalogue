@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
-import type { CatalogueData, ObjectInfo } from '../electron/shared-types'
+import { useCallback, useEffect, useState } from 'react'
+import { DEFAULT_SEESTAR_DIRECTORY_PATTERN, type CatalogueData, type ObjectInfo } from '../electron/shared-types'
 import { AppNav, type AppSection } from './components/AppNav'
 import { ColumnFilter } from './components/ColumnFilter'
+import { ConfigurationView } from './components/ConfigurationView'
 import { Header } from './components/Header'
 import { ObjectCard } from './components/ObjectCard'
 import { ObjectDetailModal } from './components/ObjectDetailModal'
@@ -14,6 +15,8 @@ import { WarningsPanel } from './components/WarningsPanel'
 import { groupObjectsByCatalog } from './lib/groupObjects'
 import { formatMetrics, type MetricKey } from './lib/columns'
 import { compareObjects, type SortDirection, type SortKey } from './lib/sortObjects'
+
+export type ConnectionStatus = 'checking' | 'connected' | 'disconnected'
 
 export default function App() {
   const [activeSection, setActiveSection] = useState<AppSection>('catalogue')
@@ -34,6 +37,28 @@ export default function App() {
   const [selectedMetrics, setSelectedMetrics] = useState<Set<MetricKey>>(
     () => new Set<MetricKey>(['frames', 'exposure', 'size']),
   )
+  const [directoryPattern, setDirectoryPattern] = useState<string>(
+    () => localStorage.getItem('seestarDirectoryPattern') ?? DEFAULT_SEESTAR_DIRECTORY_PATTERN,
+  )
+
+  function handleDirectoryPatternChange(pattern: string) {
+    setDirectoryPattern(pattern)
+    localStorage.setItem('seestarDirectoryPattern', pattern)
+  }
+
+  const [seestarStatus, setSeestarStatus] = useState<ConnectionStatus>('checking')
+
+  const checkSeestarConnection = useCallback(() => {
+    setSeestarStatus('checking')
+    window.astroCatalogue
+      .checkSeestarConnection()
+      .then((connected) => setSeestarStatus(connected ? 'connected' : 'disconnected'))
+      .catch(() => setSeestarStatus('disconnected'))
+  }, [])
+
+  useEffect(() => {
+    checkSeestarConnection()
+  }, [checkSeestarConnection])
 
   function handleViewModeChange(mode: ViewMode) {
     setViewMode(mode)
@@ -87,7 +112,7 @@ export default function App() {
     setError(null)
     setScanProgressLabel('Scanning…')
     try {
-      const result = await window.astroCatalogue.analyzeDirectory(catalogue.rootPath)
+      const result = await window.astroCatalogue.analyzeDirectory(catalogue.rootPath, directoryPattern)
       setCatalogue(result)
     } catch (e) {
       setError(String(e))
@@ -130,6 +155,8 @@ export default function App() {
         scanProgressLabel={scanProgressLabel}
         onSelectRoot={handleSelectRoot}
         onAnalyze={handleAnalyze}
+        seestarStatus={seestarStatus}
+        onCheckSeestarConnection={checkSeestarConnection}
       />
 
       <div className="mx-auto flex max-w-[96rem] gap-8 px-6 py-8">
@@ -137,7 +164,18 @@ export default function App() {
 
         <div className="min-w-0 flex-1">
         {activeSection === 'seestar' ? (
-          <SeestarView defaultTargetDirectory={catalogue?.rootPath ?? null} />
+          <SeestarView
+            defaultTargetDirectory={catalogue?.rootPath ?? null}
+            directoryPattern={directoryPattern}
+            status={seestarStatus}
+            onCheckConnection={checkSeestarConnection}
+          />
+        ) : activeSection === 'configuration' ? (
+          <ConfigurationView
+            directoryPattern={directoryPattern}
+            onDirectoryPatternChange={handleDirectoryPatternChange}
+            targetDirectory={catalogue?.rootPath ?? null}
+          />
         ) : (
         <>
         {catalogue && catalogue.objects.length > 0 && (

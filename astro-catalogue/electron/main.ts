@@ -46,8 +46,8 @@ ipcMain.handle('select-root-dir', async () => {
   return result.filePaths[0]
 })
 
-ipcMain.handle('analyze-directory', async (_event, rootPath: string) => {
-  const { objects, warnings } = scanRoot(rootPath, (currentPath, objectsScanned) => {
+ipcMain.handle('analyze-directory', async (_event, rootPath: string, directoryPattern: string) => {
+  const { objects, warnings } = scanRoot(rootPath, directoryPattern, (currentPath, objectsScanned) => {
     mainWindow?.webContents.send('scan-progress', { currentPath, objectsScanned })
   })
   saveCatalogue(rootPath, objects, warnings)

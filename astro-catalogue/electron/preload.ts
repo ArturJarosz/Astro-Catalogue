@@ -3,7 +3,8 @@ import type { AstroCatalogueApi, ScanProgress, SeestarCopyItem, SeestarCopyProgr
 
 const api: AstroCatalogueApi = {
   selectRootDir: () => ipcRenderer.invoke('select-root-dir'),
-  analyzeDirectory: (root: string) => ipcRenderer.invoke('analyze-directory', root),
+  analyzeDirectory: (root: string, directoryPattern: string) =>
+    ipcRenderer.invoke('analyze-directory', root, directoryPattern),
   getCatalogue: () => ipcRenderer.invoke('get-catalogue'),
   onScanProgress: (callback: (progress: ScanProgress) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, progress: ScanProgress) => callback(progress)

@@ -1,4 +1,4 @@
-export type AppSection = 'catalogue' | 'seestar'
+export type AppSection = 'catalogue' | 'seestar' | 'configuration'
 
 interface AppNavProps {
   active: AppSection
@@ -8,6 +8,7 @@ interface AppNavProps {
 const SECTIONS: { id: AppSection; label: string }[] = [
   { id: 'catalogue', label: 'Catalogue' },
   { id: 'seestar', label: 'Seestar' },
+  { id: 'configuration', label: 'Configuration' },
 ]
 
 export function AppNav({ active, onSelect }: AppNavProps) {

@@ -106,7 +106,7 @@ export interface SeestarCopyResult {
 
 export interface AstroCatalogueApi {
   selectRootDir: () => Promise<string | null>
-  analyzeDirectory: (root: string) => Promise<CatalogueData>
+  analyzeDirectory: (root: string, directoryPattern: string) => Promise<CatalogueData>
   getCatalogue: () => Promise<CatalogueData>
   onScanProgress: (callback: (progress: ScanProgress) => void) => () => void
   getObjectSummary: (name: string, catalog: string, catalogNumber: number | null) => Promise<ObjectSummary | null>

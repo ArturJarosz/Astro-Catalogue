@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import path from 'node:path'
+import { applyDirectoryPattern } from './directory-pattern'
 import {
   DEFAULT_SEESTAR_DIRECTORY_PATTERN,
   type SeestarCopyItem,
@@ -32,26 +33,6 @@ function formatTargetExposure(exposure: string): string {
   const num = Number.parseFloat(exposure.replace(/s$/i, ''))
   const trimmed = num.toFixed(3).replace(/0+$/, '').replace(/\.$/, '')
   return `${trimmed}s`
-}
-
-interface DirectoryPatternValues {
-  object: string
-  type: string
-  date: string
-  exposure: string
-}
-
-function applyDirectoryPattern(pattern: string, values: DirectoryPatternValues): string[] {
-  const filled = pattern
-    .replaceAll('{object}', values.object)
-    .replaceAll('{type}', values.type)
-    .replaceAll('{date}', values.date)
-    .replaceAll('{exposure}', values.exposure)
-
-  return filled
-    .split(/[/\\]+/)
-    .map((segment) => segment.trim())
-    .filter((segment) => segment.length > 0)
 }
 
 export function listSourceDirectories(sourceDir: string = SEESTAR_SOURCE_DIR): SeestarSourceDirectory[] {

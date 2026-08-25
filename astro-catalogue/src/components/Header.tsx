@@ -1,4 +1,5 @@
 import { formatTimestamp } from '../lib/format'
+import type { ConnectionStatus } from '../App'
 
 interface HeaderProps {
   rootPath: string | null
@@ -7,6 +8,20 @@ interface HeaderProps {
   scanProgressLabel: string | null
   onSelectRoot: () => void
   onAnalyze: () => void
+  seestarStatus: ConnectionStatus
+  onCheckSeestarConnection: () => void
+}
+
+const SEESTAR_STATUS_LABEL: Record<ConnectionStatus, string> = {
+  checking: 'Checking Seestar…',
+  connected: 'Seestar connected',
+  disconnected: 'Seestar not connected',
+}
+
+const SEESTAR_STATUS_DOT: Record<ConnectionStatus, string> = {
+  checking: 'animate-pulse bg-slate-500',
+  connected: 'bg-emerald-400',
+  disconnected: 'bg-red-400',
 }
 
 export function Header({
@@ -16,14 +31,26 @@ export function Header({
   scanProgressLabel,
   onSelectRoot,
   onAnalyze,
+  seestarStatus,
+  onCheckSeestarConnection,
 }: HeaderProps) {
   return (
     <header className="sticky top-0 z-10 border-b border-white/10 bg-slate-950/80 backdrop-blur">
       <div className="mx-auto flex max-w-7xl flex-col gap-4 px-6 py-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 bg-clip-text text-2xl font-semibold tracking-tight text-transparent">
-            Astro Catalogue
-          </h1>
+          <div className="flex items-center gap-3">
+            <h1 className="bg-gradient-to-r from-sky-300 via-indigo-300 to-fuchsia-300 bg-clip-text text-2xl font-semibold tracking-tight text-transparent">
+              Astro Catalogue
+            </h1>
+            <button
+              onClick={onCheckSeestarConnection}
+              title="Re-check Seestar connection"
+              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-slate-300 transition hover:bg-white/10"
+            >
+              <span className={`h-2 w-2 rounded-full ${SEESTAR_STATUS_DOT[seestarStatus]}`} />
+              {SEESTAR_STATUS_LABEL[seestarStatus]}
+            </button>
+          </div>
           <p className="mt-1 text-sm text-slate-400">
             {rootPath ? (
               <span className="font-mono text-slate-300">{rootPath}</span>
