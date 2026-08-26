@@ -10,24 +10,26 @@ import { ColumnFilter } from './components/ColumnFilter'
 import { ConfigurationView } from './components/ConfigurationView'
 import { Header } from './components/Header'
 import { MoonPanel, type ObservingLocation } from './components/MoonPanel'
-import { ObjectCard } from './components/ObjectCard'
 import { ObjectDetailModal } from './components/ObjectDetailModal'
-import { ObjectListTable } from './components/ObjectListTable'
+import { ObjectGroupsGrid } from './components/ObjectGroupsGrid'
+import { PropositionFilters } from './components/PropositionFilters'
 import { SeestarModelSelect } from './components/SeestarModelSelect'
 import { SeestarView } from './components/SeestarView'
 import { Sidebar } from './components/Sidebar'
 import { SortControl } from './components/SortControl'
 import { ViewToggle, type ViewMode } from './components/ViewToggle'
-import { groupObjectsByCatalog } from './lib/groupObjects'
-import { formatMetrics, type MetricKey } from './lib/columns'
+import { buildFilteredSortedGroups, capGroupObjects, groupObjectsByCatalog } from './lib/groupObjects'
+import { type MetricKey } from './lib/columns'
 import {
   computeNightMoonTrack,
   getTonightWindowStart,
   type AltitudeListMetric,
   type MoonListMetric,
 } from './lib/moonSeparation'
+import { DEEP_SKY_CATALOGS } from './lib/objectCoordinates'
+import { getProposedObjects } from './lib/proposedObjects'
 import { DEFAULT_SEESTAR_MODEL, type SeestarModel } from './lib/seestarModel'
-import { compareObjects, type SortDirection, type SortKey } from './lib/sortObjects'
+import type { SortDirection, SortKey } from './lib/sortObjects'
 
 export type ConnectionStatus = 'checking' | 'connected' | 'disconnected'
 
@@ -240,6 +242,78 @@ export default function App() {
     localStorage.setItem('frameFitTooBigThresholdPercent', String(percent))
   }
 
+  const [proposalCatalogs, setProposalCatalogs] = useState<Set<string>>(() => {
+    const stored = localStorage.getItem('proposalCatalogs')
+    return stored ? new Set(JSON.parse(stored) as string[]) : new Set<string>(DEEP_SKY_CATALOGS)
+  })
+
+  function handleToggleProposalCatalog(catalog: string) {
+    setProposalCatalogs((prev) => {
+      const next = new Set(prev)
+      if (next.has(catalog)) next.delete(catalog)
+      else next.add(catalog)
+      localStorage.setItem('proposalCatalogs', JSON.stringify([...next]))
+      return next
+    })
+  }
+
+  function readStoredOptionalNumber(key: string): number | null {
+    const stored = localStorage.getItem(key)
+    if (stored === null) return null
+    const value = Number(stored)
+    return Number.isNaN(value) ? null : value
+  }
+
+  function storeOptionalNumber(key: string, value: number | null) {
+    if (value === null) localStorage.removeItem(key)
+    else localStorage.setItem(key, String(value))
+  }
+
+  const [proposalMinFramePortionPercent, setProposalMinFramePortionPercent] = useState<number | null>(() =>
+    readStoredOptionalNumber('proposalMinFramePortionPercent'),
+  )
+
+  function handleProposalMinFramePortionPercentChange(value: number | null) {
+    setProposalMinFramePortionPercent(value)
+    storeOptionalNumber('proposalMinFramePortionPercent', value)
+  }
+
+  const [proposalMaxFramePortionPercent, setProposalMaxFramePortionPercent] = useState<number | null>(() =>
+    readStoredOptionalNumber('proposalMaxFramePortionPercent'),
+  )
+
+  function handleProposalMaxFramePortionPercentChange(value: number | null) {
+    setProposalMaxFramePortionPercent(value)
+    storeOptionalNumber('proposalMaxFramePortionPercent', value)
+  }
+
+  const [proposalMinMoonSeparationDeg, setProposalMinMoonSeparationDeg] = useState<number | null>(() =>
+    readStoredOptionalNumber('proposalMinMoonSeparationDeg'),
+  )
+
+  function handleProposalMinMoonSeparationDegChange(value: number | null) {
+    setProposalMinMoonSeparationDeg(value)
+    storeOptionalNumber('proposalMinMoonSeparationDeg', value)
+  }
+
+  const [proposalMinAverageAltitudeDeg, setProposalMinAverageAltitudeDeg] = useState<number | null>(() =>
+    readStoredOptionalNumber('proposalMinAverageAltitudeDeg'),
+  )
+
+  function handleProposalMinAverageAltitudeDegChange(value: number | null) {
+    setProposalMinAverageAltitudeDeg(value)
+    storeOptionalNumber('proposalMinAverageAltitudeDeg', value)
+  }
+
+  const [proposalLimit, setProposalLimit] = useState<number>(
+    () => Number(localStorage.getItem('proposalLimit')) || 50,
+  )
+
+  function handleProposalLimitChange(limit: number) {
+    setProposalLimit(limit)
+    localStorage.setItem('proposalLimit', String(limit))
+  }
+
   const [seestarStatus, setSeestarStatus] = useState<ConnectionStatus>('checking')
 
   const checkSeestarConnection = useCallback(() => {
@@ -319,22 +393,8 @@ export default function App() {
   const groups = catalogue ? groupObjectsByCatalog(catalogue.objects) : []
   const effectiveSelectedCatalog =
     selectedCatalog !== null && groups.some((g) => g.catalog === selectedCatalog) ? selectedCatalog : null
-  const visibleGroups =
-    effectiveSelectedCatalog === null ? groups : groups.filter((g) => g.catalog === effectiveSelectedCatalog)
-  const normalizedFilter = nameFilter.trim().toLowerCase()
-  const filteredGroups = (
-    normalizedFilter === ''
-      ? visibleGroups
-      : visibleGroups
-          .map((group) => ({
-            ...group,
-            objects: group.objects.filter((o) => o.name.toLowerCase().includes(normalizedFilter)),
-          }))
-          .filter((group) => group.objects.length > 0)
-  ).map((group) => ({
-    ...group,
-    objects: [...group.objects].sort((a, b) => compareObjects(a, b, sortKey, sortDirection)),
-  }))
+  const groupFilterOptions = { selectedCatalog: effectiveSelectedCatalog, nameFilter, sortKey, sortDirection }
+  const filteredGroups = catalogue ? buildFilteredSortedGroups(catalogue.objects, groupFilterOptions) : []
   const allFrameTypeNames = catalogue
     ? Array.from(new Set(catalogue.objects.flatMap((o) => o.frameTypes.map((ft) => ft.name)))).sort()
     : []
@@ -343,6 +403,49 @@ export default function App() {
   const effectiveSelectedMetrics = isPlanning
     ? new Set([...selectedMetrics].filter((m) => m !== 'size'))
     : selectedMetrics
+
+  const existingCatalogueKeys = useMemo(
+    () =>
+      new Set(
+        (catalogue?.objects ?? [])
+          .filter((o): o is typeof o & { catalogNumber: number } => o.catalogNumber !== null)
+          .map((o) => `${o.catalog}:${o.catalogNumber}`),
+      ),
+    [catalogue],
+  )
+
+  const proposedObjects = useMemo(() => {
+    if (!isPlanning) return []
+    return getProposedObjects(
+      existingCatalogueKeys,
+      {
+        catalogs: proposalCatalogs,
+        minFramePortionPercent: proposalMinFramePortionPercent,
+        maxFramePortionPercent: proposalMaxFramePortionPercent,
+        minMoonSeparationDeg: proposalMinMoonSeparationDeg,
+        minAverageAltitudeDeg: proposalMinAverageAltitudeDeg,
+      },
+      planningSeestarModel,
+      observingLocation,
+      nightMoonTrack,
+    )
+  }, [
+    isPlanning,
+    existingCatalogueKeys,
+    proposalCatalogs,
+    proposalMinFramePortionPercent,
+    proposalMaxFramePortionPercent,
+    proposalMinMoonSeparationDeg,
+    proposalMinAverageAltitudeDeg,
+    planningSeestarModel,
+    observingLocation,
+    nightMoonTrack,
+  ])
+
+  const proposedGroups = buildFilteredSortedGroups(proposedObjects, groupFilterOptions)
+  const totalProposalMatches = proposedGroups.reduce((sum, g) => sum + g.objects.length, 0)
+  const cappedProposedGroups = capGroupObjects(proposedGroups, proposalLimit)
+  const shownProposalCount = cappedProposedGroups.reduce((sum, g) => sum + g.objects.length, 0)
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100">
@@ -466,6 +569,7 @@ export default function App() {
                   selectedMetrics={effectiveSelectedMetrics}
                   onToggleMetric={handleToggleMetric}
                   hiddenMetrics={isPlanning ? new Set<MetricKey>(['size']) : undefined}
+                  isPlanning={isPlanning}
                 />
                 <ViewToggle value={viewMode} onChange={handleViewModeChange} />
               </div>
@@ -482,103 +586,128 @@ export default function App() {
               <p className="mb-1 text-base">No objects catalogued yet</p>
               <p className="text-sm">Click Analyze to scan the selected directory</p>
             </div>
+          ) : isPlanning ? (
+            <div className="space-y-10">
+              <section>
+                <h2 className="mb-4 text-base font-bold text-slate-100">Already in catalogue</h2>
+                {filteredGroups.length === 0 ? (
+                  <p className="text-sm text-slate-500">No catalogued objects match your filter</p>
+                ) : (
+                  <ObjectGroupsGrid
+                    groups={filteredGroups}
+                    viewMode={viewMode}
+                    warnings={catalogue.warnings}
+                    onSelectObject={setSelectedObject}
+                    visibleFrameTypes={effectiveSelectedFrameTypes}
+                    showTotal={showTotal}
+                    visibleMetrics={effectiveSelectedMetrics}
+                    observingLocation={observingLocation}
+                    nightMoonTrack={nightMoonTrack}
+                    moonRatingEnabled={moonRatingEnabled}
+                    moonGoodThresholdDeg={moonGoodThresholdDeg}
+                    moonPerfectThresholdDeg={moonPerfectThresholdDeg}
+                    altitudeRatingEnabled={altitudeRatingEnabled}
+                    altitudeGoodThresholdDeg={altitudeGoodThresholdDeg}
+                    altitudePerfectThresholdDeg={altitudePerfectThresholdDeg}
+                    moonListMetric={moonListMetric}
+                    altitudeListMetric={altitudeListMetric}
+                    isPlanning={isPlanning}
+                    seestarModel={planningSeestarModel}
+                    frameFitRatingEnabled={frameFitRatingEnabled}
+                    frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
+                    frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
+                    frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
+                  />
+                )}
+              </section>
+
+              <section>
+                <h2 className="mb-3 text-base font-bold text-slate-100">Propositions</h2>
+                <PropositionFilters
+                  catalogs={proposalCatalogs}
+                  onToggleCatalog={handleToggleProposalCatalog}
+                  minFramePortionPercent={proposalMinFramePortionPercent}
+                  onMinFramePortionPercentChange={handleProposalMinFramePortionPercentChange}
+                  maxFramePortionPercent={proposalMaxFramePortionPercent}
+                  onMaxFramePortionPercentChange={handleProposalMaxFramePortionPercentChange}
+                  minMoonSeparationDeg={proposalMinMoonSeparationDeg}
+                  onMinMoonSeparationDegChange={handleProposalMinMoonSeparationDegChange}
+                  minAverageAltitudeDeg={proposalMinAverageAltitudeDeg}
+                  onMinAverageAltitudeDegChange={handleProposalMinAverageAltitudeDegChange}
+                  limit={proposalLimit}
+                  onLimitChange={handleProposalLimitChange}
+                />
+                <p className="mb-4 text-xs text-slate-500">
+                  Catalog objects you haven't captured yet, matching the filters above.
+                  {totalProposalMatches > shownProposalCount &&
+                    ` Showing the first ${shownProposalCount} of ${totalProposalMatches} matches — narrow the filters or raise the limit to see more.`}
+                </p>
+                {cappedProposedGroups.length === 0 ? (
+                  <p className="text-sm text-slate-500">
+                    {observingLocation
+                      ? 'No matching objects found outside your catalogue.'
+                      : 'Set your observing location in Configuration to filter propositions by Moon distance or altitude.'}
+                  </p>
+                ) : (
+                  <ObjectGroupsGrid
+                    groups={cappedProposedGroups}
+                    viewMode={viewMode}
+                    warnings={[]}
+                    onSelectObject={setSelectedObject}
+                    visibleFrameTypes={effectiveSelectedFrameTypes}
+                    showTotal={false}
+                    visibleMetrics={effectiveSelectedMetrics}
+                    observingLocation={observingLocation}
+                    nightMoonTrack={nightMoonTrack}
+                    moonRatingEnabled={moonRatingEnabled}
+                    moonGoodThresholdDeg={moonGoodThresholdDeg}
+                    moonPerfectThresholdDeg={moonPerfectThresholdDeg}
+                    altitudeRatingEnabled={altitudeRatingEnabled}
+                    altitudeGoodThresholdDeg={altitudeGoodThresholdDeg}
+                    altitudePerfectThresholdDeg={altitudePerfectThresholdDeg}
+                    moonListMetric={moonListMetric}
+                    altitudeListMetric={altitudeListMetric}
+                    isPlanning={isPlanning}
+                    seestarModel={planningSeestarModel}
+                    frameFitRatingEnabled={frameFitRatingEnabled}
+                    frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
+                    frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
+                    frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
+                  />
+                )}
+              </section>
+            </div>
           ) : filteredGroups.length === 0 ? (
             <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-24 text-center text-slate-500">
               <p className="mb-1 text-base">No objects match your filter</p>
               <p className="text-sm">Try a different search term</p>
             </div>
           ) : (
-            <div className="space-y-10">
-              {filteredGroups.map((group) => {
-                const groupTotalFrames = group.objects.reduce(
-                  (sum, o) => sum + o.frameTypes.reduce((s, ft) => s + ft.totalFrames, 0),
-                  0,
-                )
-                const groupTotalExposure = group.objects.reduce(
-                  (sum, o) => sum + o.frameTypes.reduce((s, ft) => s + ft.totalExposureSeconds, 0),
-                  0,
-                )
-                const groupTotalSize = group.objects.reduce(
-                  (sum, o) => sum + o.frameTypes.reduce((s, ft) => s + ft.totalSizeBytes, 0),
-                  0,
-                )
-                return (
-                <section key={group.catalog}>
-                  <h2 className="mb-3 flex items-baseline gap-2 text-base font-semibold uppercase tracking-wide text-slate-400">
-                    {group.catalog}
-                    <span className="text-xs font-normal normal-case text-slate-600">({group.objects.length})</span>
-                    {showTotal && (
-                      <span className="ml-auto text-xs font-normal normal-case tabular-nums text-slate-600">
-                        {formatMetrics(
-                          {
-                            totalFrames: groupTotalFrames,
-                            totalExposureSeconds: groupTotalExposure,
-                            totalSizeBytes: groupTotalSize,
-                          },
-                          effectiveSelectedMetrics,
-                        )}
-                      </span>
-                    )}
-                  </h2>
-                  {viewMode === 'card' ? (
-                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-                      {group.objects.map((object) => (
-                        <ObjectCard
-                          key={object.path}
-                          object={object}
-                          warnings={catalogue.warnings}
-                          onClick={() => setSelectedObject(object)}
-                          visibleFrameTypes={effectiveSelectedFrameTypes}
-                          showTotal={showTotal}
-                          visibleMetrics={effectiveSelectedMetrics}
-                          observingLocation={observingLocation}
-                          nightMoonTrack={nightMoonTrack}
-                          moonRatingEnabled={moonRatingEnabled}
-                          moonGoodThresholdDeg={moonGoodThresholdDeg}
-                          moonPerfectThresholdDeg={moonPerfectThresholdDeg}
-                          altitudeRatingEnabled={altitudeRatingEnabled}
-                          altitudeGoodThresholdDeg={altitudeGoodThresholdDeg}
-                          altitudePerfectThresholdDeg={altitudePerfectThresholdDeg}
-                          isPlanning={isPlanning}
-                          seestarModel={planningSeestarModel}
-                          frameFitRatingEnabled={frameFitRatingEnabled}
-                          frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
-                          frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
-                          frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
-                        />
-                      ))}
-                    </div>
-                  ) : (
-                    <ObjectListTable
-                      objects={group.objects}
-                      warnings={catalogue.warnings}
-                      onSelect={setSelectedObject}
-                      showThumbnails={viewMode === 'thumbnail-list'}
-                      visibleFrameTypes={effectiveSelectedFrameTypes}
-                      showTotal={showTotal}
-                      visibleMetrics={effectiveSelectedMetrics}
-                      observingLocation={observingLocation}
-                      nightMoonTrack={nightMoonTrack}
-                      moonRatingEnabled={moonRatingEnabled}
-                      moonGoodThresholdDeg={moonGoodThresholdDeg}
-                      moonPerfectThresholdDeg={moonPerfectThresholdDeg}
-                      altitudeRatingEnabled={altitudeRatingEnabled}
-                      altitudeGoodThresholdDeg={altitudeGoodThresholdDeg}
-                      altitudePerfectThresholdDeg={altitudePerfectThresholdDeg}
-                      moonListMetric={moonListMetric}
-                      altitudeListMetric={altitudeListMetric}
-                      isPlanning={isPlanning}
-                      seestarModel={planningSeestarModel}
-                      frameFitRatingEnabled={frameFitRatingEnabled}
-                      frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
-                      frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
-                      frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
-                    />
-                  )}
-                </section>
-                )
-              })}
-            </div>
+            <ObjectGroupsGrid
+              groups={filteredGroups}
+              viewMode={viewMode}
+              warnings={catalogue.warnings}
+              onSelectObject={setSelectedObject}
+              visibleFrameTypes={effectiveSelectedFrameTypes}
+              showTotal={showTotal}
+              visibleMetrics={effectiveSelectedMetrics}
+              observingLocation={observingLocation}
+              nightMoonTrack={nightMoonTrack}
+              moonRatingEnabled={moonRatingEnabled}
+              moonGoodThresholdDeg={moonGoodThresholdDeg}
+              moonPerfectThresholdDeg={moonPerfectThresholdDeg}
+              altitudeRatingEnabled={altitudeRatingEnabled}
+              altitudeGoodThresholdDeg={altitudeGoodThresholdDeg}
+              altitudePerfectThresholdDeg={altitudePerfectThresholdDeg}
+              moonListMetric={moonListMetric}
+              altitudeListMetric={altitudeListMetric}
+              isPlanning={isPlanning}
+              seestarModel={planningSeestarModel}
+              frameFitRatingEnabled={frameFitRatingEnabled}
+              frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
+              frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
+              frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
+            />
           )}
         </main>
         </>

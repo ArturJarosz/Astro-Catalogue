@@ -10,6 +10,8 @@ interface ColumnFilterProps {
   selectedMetrics: Set<MetricKey>
   onToggleMetric: (key: MetricKey) => void
   hiddenMetrics?: Set<MetricKey>
+  /** Planning view has no per-frame-type breakdown column, so that section doesn't apply. */
+  isPlanning?: boolean
 }
 
 export function ColumnFilter({
@@ -21,6 +23,7 @@ export function ColumnFilter({
   selectedMetrics,
   onToggleMetric,
   hiddenMetrics,
+  isPlanning = false,
 }: ColumnFilterProps) {
   const metricOptions = hiddenMetrics ? METRIC_OPTIONS.filter((opt) => !hiddenMetrics.has(opt.key)) : METRIC_OPTIONS
   const [open, setOpen] = useState(false)
@@ -48,19 +51,25 @@ export function ColumnFilter({
 
       {open && (
         <div className="absolute right-0 z-20 mt-2 w-56 rounded-lg border border-white/10 bg-slate-800 p-3 shadow-xl">
-          <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">Frame types</p>
+          {!isPlanning && (
+            <>
+              <p className="mb-1.5 text-[10px] font-medium uppercase tracking-wide text-slate-500">Frame types</p>
+              <div className="mb-3 flex flex-col gap-1">
+                {frameTypeOptions.map((name) => (
+                  <label key={name} className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
+                    <input
+                      type="checkbox"
+                      checked={selectedFrameTypes.has(name)}
+                      onChange={() => onToggleFrameType(name)}
+                      className="accent-sky-500"
+                    />
+                    {name}
+                  </label>
+                ))}
+              </div>
+            </>
+          )}
           <div className="mb-3 flex flex-col gap-1">
-            {frameTypeOptions.map((name) => (
-              <label key={name} className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
-                <input
-                  type="checkbox"
-                  checked={selectedFrameTypes.has(name)}
-                  onChange={() => onToggleFrameType(name)}
-                  className="accent-sky-500"
-                />
-                {name}
-              </label>
-            ))}
             <label className="flex cursor-pointer items-center gap-2 text-sm text-slate-200">
               <input type="checkbox" checked={showTotal} onChange={onToggleTotal} className="accent-sky-500" />
               Total
