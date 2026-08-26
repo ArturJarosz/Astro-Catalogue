@@ -3,6 +3,8 @@ import deepSkyCoordinates from './data/deepSkyCoordinates.json'
 export interface CelestialCoordinates {
   raDeg: number
   decDeg: number
+  majorArcmin?: number
+  minorArcmin?: number
 }
 
 const coordinatesByKey = deepSkyCoordinates as Record<string, CelestialCoordinates>

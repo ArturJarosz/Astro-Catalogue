@@ -1,9 +1,14 @@
 import type { ObjectInfo, WarningInfo } from '../../electron/shared-types'
 import { formatMetrics, type MetricKey } from '../lib/columns'
-import type { NightMoonTrackSample } from '../lib/moonSeparation'
+import { formatAngularSize, formatFramePortion } from '../lib/format'
+import { rateFrameFit, textClassFor as frameFitTextClassFor } from '../lib/frameFitRating'
+import { getFramePortionPercent } from '../lib/framePortion'
+import type { AltitudeListMetric, MoonListMetric, NightMoonTrackSample } from '../lib/moonSeparation'
+import { getObjectCoordinates } from '../lib/objectCoordinates'
+import type { SeestarModel } from '../lib/seestarModel'
 import { getObjectWarnings } from '../lib/warnings'
 import type { ObservingLocation } from './MoonPanel'
-import { MoonSeparationBadge } from './MoonSeparationBadge'
+import { MoonSeparationCells } from './MoonSeparationCells'
 import { ObjectThumbnail } from './ObjectThumbnail'
 
 interface ObjectListTableProps {
@@ -16,8 +21,23 @@ interface ObjectListTableProps {
   visibleMetrics: Set<MetricKey>
   observingLocation: ObservingLocation | null
   nightMoonTrack: NightMoonTrackSample[] | null
-  moonCautionThresholdDeg: number
-  moonCloseThresholdDeg: number
+  moonRatingEnabled: boolean
+  moonGoodThresholdDeg: number
+  moonPerfectThresholdDeg: number
+  altitudeRatingEnabled: boolean
+  altitudeGoodThresholdDeg: number
+  altitudePerfectThresholdDeg: number
+  /** Which Moon-separation number to show — user-configurable in Configuration → Planning. */
+  moonListMetric: MoonListMetric
+  /** Which altitude number to show — user-configurable in Configuration → Planning. */
+  altitudeListMetric: AltitudeListMetric
+  /** Planning view: swaps the frame-type breakdown for Moon/altitude columns, matching ObjectCard. */
+  isPlanning: boolean
+  seestarModel: SeestarModel
+  frameFitRatingEnabled: boolean
+  frameFitGoodThresholdPercent: number
+  frameFitMosaicThresholdPercent: number
+  frameFitTooBigThresholdPercent: number
 }
 
 export function ObjectListTable({
@@ -30,12 +50,26 @@ export function ObjectListTable({
   visibleMetrics,
   observingLocation,
   nightMoonTrack,
-  moonCautionThresholdDeg,
-  moonCloseThresholdDeg,
+  moonRatingEnabled,
+  moonGoodThresholdDeg,
+  moonPerfectThresholdDeg,
+  altitudeRatingEnabled,
+  altitudeGoodThresholdDeg,
+  altitudePerfectThresholdDeg,
+  moonListMetric,
+  altitudeListMetric,
+  isPlanning,
+  seestarModel,
+  frameFitRatingEnabled,
+  frameFitGoodThresholdPercent,
+  frameFitMosaicThresholdPercent,
+  frameFitTooBigThresholdPercent,
 }: ObjectListTableProps) {
-  const frameTypeNames = Array.from(new Set(objects.flatMap((o) => o.frameTypes.map((ft) => ft.name))))
-    .filter((name) => visibleFrameTypes.has(name))
-    .sort()
+  const frameTypeNames = isPlanning
+    ? []
+    : Array.from(new Set(objects.flatMap((o) => o.frameTypes.map((ft) => ft.name))))
+        .filter((name) => visibleFrameTypes.has(name))
+        .sort()
 
   return (
     <div className="overflow-x-auto rounded-lg border border-white/10">
@@ -44,11 +78,20 @@ export function ObjectListTable({
           <tr className="border-b border-white/10 bg-white/5 text-xs uppercase tracking-wide text-slate-400">
             {showThumbnails && <th className="w-10 px-3 py-2"></th>}
             <th className="px-3 py-2 text-left font-medium">Object</th>
-            {frameTypeNames.map((name) => (
-              <th key={name} className="whitespace-nowrap px-3 py-2 text-right font-medium">
-                {name}
-              </th>
-            ))}
+            {isPlanning ? (
+              <>
+                <th className="whitespace-nowrap px-3 py-2 text-right font-medium">Moon</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right font-medium">Altitude</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right font-medium">Size</th>
+                <th className="whitespace-nowrap px-3 py-2 text-right font-medium">Frame</th>
+              </>
+            ) : (
+              frameTypeNames.map((name) => (
+                <th key={name} className="whitespace-nowrap px-3 py-2 text-right font-medium">
+                  {name}
+                </th>
+              ))
+            )}
             {showTotal && <th className="whitespace-nowrap px-3 py-2 text-right font-medium">Total</th>}
           </tr>
         </thead>
@@ -59,6 +102,15 @@ export function ObjectListTable({
             const grandTotalExposure = object.frameTypes.reduce((sum, ft) => sum + ft.totalExposureSeconds, 0)
             const grandTotalSize = object.frameTypes.reduce((sum, ft) => sum + ft.totalSizeBytes, 0)
             const frameTypeByName = new Map(object.frameTypes.map((ft) => [ft.name, ft]))
+            const coordinates = getObjectCoordinates(object.catalog, object.catalogNumber)
+            const framePortionPercent = getFramePortionPercent(coordinates?.majorArcmin, coordinates?.minorArcmin, seestarModel)
+            const frameFitRating = rateFrameFit(
+              frameFitRatingEnabled,
+              framePortionPercent,
+              frameFitGoodThresholdPercent,
+              frameFitMosaicThresholdPercent,
+              frameFitTooBigThresholdPercent,
+            )
 
             return (
               <tr
@@ -94,26 +146,43 @@ export function ObjectListTable({
                         <span className="font-medium tabular-nums">{objectWarnings.length}</span>
                       </span>
                     )}
-                    <MoonSeparationBadge
+                  </span>
+                </td>
+                {isPlanning ? (
+                  <>
+                    <MoonSeparationCells
                       object={object}
                       observingLocation={observingLocation}
                       nightMoonTrack={nightMoonTrack}
-                      cautionThresholdDeg={moonCautionThresholdDeg}
-                      closeThresholdDeg={moonCloseThresholdDeg}
+                      moonRatingEnabled={moonRatingEnabled}
+                      goodThresholdDeg={moonGoodThresholdDeg}
+                      perfectThresholdDeg={moonPerfectThresholdDeg}
+                      altitudeRatingEnabled={altitudeRatingEnabled}
+                      altitudeGoodThresholdDeg={altitudeGoodThresholdDeg}
+                      altitudePerfectThresholdDeg={altitudePerfectThresholdDeg}
+                      moonListMetric={moonListMetric}
+                      altitudeListMetric={altitudeListMetric}
                     />
-                  </span>
-                </td>
-                {frameTypeNames.map((name) => {
-                  const ft = frameTypeByName.get(name)
-                  return (
-                    <td
-                      key={name}
-                      className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-slate-300"
-                    >
-                      {ft ? formatMetrics(ft, visibleMetrics) : <span className="text-slate-600">–</span>}
+                    <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-slate-300">
+                      {formatAngularSize(coordinates?.majorArcmin, coordinates?.minorArcmin)}
                     </td>
-                  )
-                })}
+                    <td className={`whitespace-nowrap px-3 py-2 text-right text-xs font-medium tabular-nums ${frameFitTextClassFor(frameFitRating)}`}>
+                      {formatFramePortion(framePortionPercent)}
+                    </td>
+                  </>
+                ) : (
+                  frameTypeNames.map((name) => {
+                    const ft = frameTypeByName.get(name)
+                    return (
+                      <td
+                        key={name}
+                        className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-slate-300"
+                      >
+                        {ft ? formatMetrics(ft, visibleMetrics) : <span className="text-slate-600">–</span>}
+                      </td>
+                    )
+                  })
+                )}
                 {showTotal && (
                   <td className="whitespace-nowrap px-3 py-2 text-right text-[11px] font-bold tabular-nums text-white">
                     {formatMetrics(

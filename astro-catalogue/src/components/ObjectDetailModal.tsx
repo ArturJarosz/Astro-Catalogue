@@ -2,11 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import type { ObjectInfo, ObjectSummary, WarningInfo } from '../../electron/shared-types'
 import { AltitudeChart } from './AltitudeChart'
 import type { ObservingLocation } from './MoonPanel'
-import { formatAltitude, formatExposure, formatRa, formatSize } from '../lib/format'
+import { formatAltitude, formatAngularSize, formatExposure, formatFramePortion, formatRa, formatSize } from '../lib/format'
 import { raDecToAltitude } from '../lib/astronomyMath'
+import { labelFor, rateFrameFit, textClassFor as frameFitTextClassFor } from '../lib/frameFitRating'
+import { getFramePortionPercent } from '../lib/framePortion'
 import { getMoonSeparationForObject, type NightMoonTrackSample } from '../lib/moonSeparation'
 import { getObjectCoordinates } from '../lib/objectCoordinates'
 import { getObjectVisibility } from '../lib/objectVisibility'
+import type { SeestarModel } from '../lib/seestarModel'
 import { getObjectWarnings } from '../lib/warnings'
 
 interface ObjectDetailModalProps {
@@ -14,6 +17,11 @@ interface ObjectDetailModalProps {
   warnings: WarningInfo[]
   observingLocation: ObservingLocation | null
   nightMoonTrack: NightMoonTrackSample[] | null
+  seestarModel: SeestarModel
+  frameFitRatingEnabled: boolean
+  frameFitGoodThresholdPercent: number
+  frameFitMosaicThresholdPercent: number
+  frameFitTooBigThresholdPercent: number
   onClose: () => void
 }
 
@@ -22,12 +30,34 @@ function formatTime(date: Date | null): string {
   return date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })
 }
 
-export function ObjectDetailModal({ object, warnings, observingLocation, nightMoonTrack, onClose }: ObjectDetailModalProps) {
+export function ObjectDetailModal({
+  object,
+  warnings,
+  observingLocation,
+  nightMoonTrack,
+  seestarModel,
+  frameFitRatingEnabled,
+  frameFitGoodThresholdPercent,
+  frameFitMosaicThresholdPercent,
+  frameFitTooBigThresholdPercent,
+  onClose,
+}: ObjectDetailModalProps) {
   const [summary, setSummary] = useState<ObjectSummary | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(true)
   const objectWarnings = getObjectWarnings(object, warnings)
 
   const coordinates = useMemo(() => getObjectCoordinates(object.catalog, object.catalogNumber), [object.catalog, object.catalogNumber])
+  const framePortionPercent = useMemo(
+    () => getFramePortionPercent(coordinates?.majorArcmin, coordinates?.minorArcmin, seestarModel),
+    [coordinates, seestarModel],
+  )
+  const frameFitRating = rateFrameFit(
+    frameFitRatingEnabled,
+    framePortionPercent,
+    frameFitGoodThresholdPercent,
+    frameFitMosaicThresholdPercent,
+    frameFitTooBigThresholdPercent,
+  )
 
   // Window starts 1h before now (not local midnight) so the chart looks mostly
   // forward at what's plannable tonight, with just a sliver of recent past for context.
@@ -113,6 +143,15 @@ export function ObjectDetailModal({ object, warnings, observingLocation, nightMo
             <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-slate-400">
               {object.catalog}
             </span>
+            {coordinates?.majorArcmin !== undefined && (
+              <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-sky-300">
+                Size {formatAngularSize(coordinates.majorArcmin, coordinates.minorArcmin)} · Frame{' '}
+                <span className={frameFitRating ? frameFitTextClassFor(frameFitRating) : undefined}>
+                  {formatFramePortion(framePortionPercent)}
+                  {frameFitRating && ` (${labelFor(frameFitRating)})`}
+                </span>
+              </span>
+            )}
           </div>
           <button
             onClick={onClose}
@@ -172,6 +211,17 @@ export function ObjectDetailModal({ object, warnings, observingLocation, nightMo
                       <span>
                         <span className="text-slate-500">Alt </span>
                         {currentAltitudeDeg !== null ? formatAltitude(currentAltitudeDeg) : '—'}
+                      </span>
+                      <span>
+                        <span className="text-slate-500">Size </span>
+                        {formatAngularSize(coordinates.majorArcmin, coordinates.minorArcmin)}
+                      </span>
+                      <span>
+                        <span className="text-slate-500">Frame </span>
+                        <span className={frameFitRating ? `font-medium ${frameFitTextClassFor(frameFitRating)}` : undefined}>
+                          {formatFramePortion(framePortionPercent)}
+                          {frameFitRating && ` (${labelFor(frameFitRating)})`}
+                        </span>
                       </span>
                       <span>
                         <span className="text-slate-500">Rises </span>

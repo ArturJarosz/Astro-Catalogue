@@ -13,13 +13,20 @@ import { MoonPanel, type ObservingLocation } from './components/MoonPanel'
 import { ObjectCard } from './components/ObjectCard'
 import { ObjectDetailModal } from './components/ObjectDetailModal'
 import { ObjectListTable } from './components/ObjectListTable'
+import { SeestarModelSelect } from './components/SeestarModelSelect'
 import { SeestarView } from './components/SeestarView'
 import { Sidebar } from './components/Sidebar'
 import { SortControl } from './components/SortControl'
 import { ViewToggle, type ViewMode } from './components/ViewToggle'
 import { groupObjectsByCatalog } from './lib/groupObjects'
 import { formatMetrics, type MetricKey } from './lib/columns'
-import { computeNightMoonTrack, getTonightWindowStart } from './lib/moonSeparation'
+import {
+  computeNightMoonTrack,
+  getTonightWindowStart,
+  type AltitudeListMetric,
+  type MoonListMetric,
+} from './lib/moonSeparation'
+import { DEFAULT_SEESTAR_MODEL, type SeestarModel } from './lib/seestarModel'
 import { compareObjects, type SortDirection, type SortKey } from './lib/sortObjects'
 
 export type ConnectionStatus = 'checking' | 'connected' | 'disconnected'
@@ -91,22 +98,79 @@ export default function App() {
     localStorage.setItem('moonPanelHighlightTonight', String(highlight))
   }
 
-  const [moonCautionThresholdDeg, setMoonCautionThresholdDeg] = useState<number>(
-    () => Number(localStorage.getItem('moonCautionThresholdDeg')) || 30,
+  const [moonRatingEnabled, setMoonRatingEnabled] = useState<boolean>(
+    () => (localStorage.getItem('moonRatingEnabled') ?? 'true') === 'true',
   )
 
-  function handleMoonCautionThresholdDegChange(deg: number) {
-    setMoonCautionThresholdDeg(deg)
-    localStorage.setItem('moonCautionThresholdDeg', String(deg))
+  function handleMoonRatingEnabledChange(enabled: boolean) {
+    setMoonRatingEnabled(enabled)
+    localStorage.setItem('moonRatingEnabled', String(enabled))
   }
 
-  const [moonCloseThresholdDeg, setMoonCloseThresholdDeg] = useState<number>(
-    () => Number(localStorage.getItem('moonCloseThresholdDeg')) || 15,
+  // Moon-distance rating tiers: Bad (< good), Good (>= good, < perfect), Perfect (>= perfect).
+  const [moonGoodThresholdDeg, setMoonGoodThresholdDeg] = useState<number>(
+    () => Number(localStorage.getItem('moonGoodThresholdDeg')) || 15,
   )
 
-  function handleMoonCloseThresholdDegChange(deg: number) {
-    setMoonCloseThresholdDeg(deg)
-    localStorage.setItem('moonCloseThresholdDeg', String(deg))
+  function handleMoonGoodThresholdDegChange(deg: number) {
+    setMoonGoodThresholdDeg(deg)
+    localStorage.setItem('moonGoodThresholdDeg', String(deg))
+  }
+
+  const [moonPerfectThresholdDeg, setMoonPerfectThresholdDeg] = useState<number>(
+    () => Number(localStorage.getItem('moonPerfectThresholdDeg')) || 30,
+  )
+
+  function handleMoonPerfectThresholdDegChange(deg: number) {
+    setMoonPerfectThresholdDeg(deg)
+    localStorage.setItem('moonPerfectThresholdDeg', String(deg))
+  }
+
+  const [altitudeRatingEnabled, setAltitudeRatingEnabled] = useState<boolean>(
+    () => (localStorage.getItem('altitudeRatingEnabled') ?? 'true') === 'true',
+  )
+
+  function handleAltitudeRatingEnabledChange(enabled: boolean) {
+    setAltitudeRatingEnabled(enabled)
+    localStorage.setItem('altitudeRatingEnabled', String(enabled))
+  }
+
+  // Altitude rating tiers: same Bad/Good/Perfect shape, driven by average altitude
+  // while up tonight (higher is better, opposite direction from the Moon rating).
+  const [altitudeGoodThresholdDeg, setAltitudeGoodThresholdDeg] = useState<number>(
+    () => Number(localStorage.getItem('altitudeGoodThresholdDeg')) || 30,
+  )
+
+  function handleAltitudeGoodThresholdDegChange(deg: number) {
+    setAltitudeGoodThresholdDeg(deg)
+    localStorage.setItem('altitudeGoodThresholdDeg', String(deg))
+  }
+
+  const [altitudePerfectThresholdDeg, setAltitudePerfectThresholdDeg] = useState<number>(
+    () => Number(localStorage.getItem('altitudePerfectThresholdDeg')) || 50,
+  )
+
+  function handleAltitudePerfectThresholdDegChange(deg: number) {
+    setAltitudePerfectThresholdDeg(deg)
+    localStorage.setItem('altitudePerfectThresholdDeg', String(deg))
+  }
+
+  const [moonListMetric, setMoonListMetric] = useState<MoonListMetric>(
+    () => (localStorage.getItem('moonListMetric') as MoonListMetric | null) ?? 'closest',
+  )
+
+  function handleMoonListMetricChange(metric: MoonListMetric) {
+    setMoonListMetric(metric)
+    localStorage.setItem('moonListMetric', metric)
+  }
+
+  const [altitudeListMetric, setAltitudeListMetric] = useState<AltitudeListMetric>(
+    () => (localStorage.getItem('altitudeListMetric') as AltitudeListMetric | null) ?? 'average',
+  )
+
+  function handleAltitudeListMetricChange(metric: AltitudeListMetric) {
+    setAltitudeListMetric(metric)
+    localStorage.setItem('altitudeListMetric', metric)
   }
 
   const [showMoonPanel, setShowMoonPanel] = useState<boolean>(
@@ -125,6 +189,55 @@ export default function App() {
   function handleSeestarSourceDirectoryChange(directory: string) {
     setSeestarSourceDirectory(directory)
     localStorage.setItem('seestarSourceDirectory', directory)
+  }
+
+  const [planningSeestarModel, setPlanningSeestarModel] = useState<SeestarModel>(
+    () => (localStorage.getItem('planningSeestarModel') as SeestarModel | null) ?? DEFAULT_SEESTAR_MODEL,
+  )
+
+  function handlePlanningSeestarModelChange(model: SeestarModel) {
+    setPlanningSeestarModel(model)
+    localStorage.setItem('planningSeestarModel', model)
+  }
+
+  const [frameFitRatingEnabled, setFrameFitRatingEnabled] = useState<boolean>(
+    () => (localStorage.getItem('frameFitRatingEnabled') ?? 'true') === 'true',
+  )
+
+  function handleFrameFitRatingEnabledChange(enabled: boolean) {
+    setFrameFitRatingEnabled(enabled)
+    localStorage.setItem('frameFitRatingEnabled', String(enabled))
+  }
+
+  // Frame-fit tiers, by portion of frame area: below "good" is Too small; up to
+  // "mosaic" is Good; up to "too big" is Good for mosaic (mosaic mode stitches
+  // several frames, so it comfortably covers objects that barely fit a single
+  // frame or overflow it a bit); at/above "too big" is Too big even for mosaic.
+  const [frameFitGoodThresholdPercent, setFrameFitGoodThresholdPercent] = useState<number>(
+    () => Number(localStorage.getItem('frameFitGoodThresholdPercent')) || 3,
+  )
+
+  function handleFrameFitGoodThresholdPercentChange(percent: number) {
+    setFrameFitGoodThresholdPercent(percent)
+    localStorage.setItem('frameFitGoodThresholdPercent', String(percent))
+  }
+
+  const [frameFitMosaicThresholdPercent, setFrameFitMosaicThresholdPercent] = useState<number>(
+    () => Number(localStorage.getItem('frameFitMosaicThresholdPercent')) || 90,
+  )
+
+  function handleFrameFitMosaicThresholdPercentChange(percent: number) {
+    setFrameFitMosaicThresholdPercent(percent)
+    localStorage.setItem('frameFitMosaicThresholdPercent', String(percent))
+  }
+
+  const [frameFitTooBigThresholdPercent, setFrameFitTooBigThresholdPercent] = useState<number>(
+    () => Number(localStorage.getItem('frameFitTooBigThresholdPercent')) || 500,
+  )
+
+  function handleFrameFitTooBigThresholdPercentChange(percent: number) {
+    setFrameFitTooBigThresholdPercent(percent)
+    localStorage.setItem('frameFitTooBigThresholdPercent', String(percent))
   }
 
   const [seestarStatus, setSeestarStatus] = useState<ConnectionStatus>('checking')
@@ -272,12 +385,32 @@ export default function App() {
             onHighlightTonightChange={handleHighlightTonightChange}
             showMoonPanel={showMoonPanel}
             onShowMoonPanelChange={handleShowMoonPanelChange}
-            moonCautionThresholdDeg={moonCautionThresholdDeg}
-            onMoonCautionThresholdDegChange={handleMoonCautionThresholdDegChange}
-            moonCloseThresholdDeg={moonCloseThresholdDeg}
-            onMoonCloseThresholdDegChange={handleMoonCloseThresholdDegChange}
+            moonRatingEnabled={moonRatingEnabled}
+            onMoonRatingEnabledChange={handleMoonRatingEnabledChange}
+            moonGoodThresholdDeg={moonGoodThresholdDeg}
+            onMoonGoodThresholdDegChange={handleMoonGoodThresholdDegChange}
+            moonPerfectThresholdDeg={moonPerfectThresholdDeg}
+            onMoonPerfectThresholdDegChange={handleMoonPerfectThresholdDegChange}
+            altitudeRatingEnabled={altitudeRatingEnabled}
+            onAltitudeRatingEnabledChange={handleAltitudeRatingEnabledChange}
+            altitudeGoodThresholdDeg={altitudeGoodThresholdDeg}
+            onAltitudeGoodThresholdDegChange={handleAltitudeGoodThresholdDegChange}
+            altitudePerfectThresholdDeg={altitudePerfectThresholdDeg}
+            onAltitudePerfectThresholdDegChange={handleAltitudePerfectThresholdDegChange}
+            moonListMetric={moonListMetric}
+            onMoonListMetricChange={handleMoonListMetricChange}
+            altitudeListMetric={altitudeListMetric}
+            onAltitudeListMetricChange={handleAltitudeListMetricChange}
             seestarSourceDirectory={seestarSourceDirectory}
             onSeestarSourceDirectoryChange={handleSeestarSourceDirectoryChange}
+            frameFitRatingEnabled={frameFitRatingEnabled}
+            onFrameFitRatingEnabledChange={handleFrameFitRatingEnabledChange}
+            frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
+            onFrameFitGoodThresholdPercentChange={handleFrameFitGoodThresholdPercentChange}
+            frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
+            onFrameFitMosaicThresholdPercentChange={handleFrameFitMosaicThresholdPercentChange}
+            frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
+            onFrameFitTooBigThresholdPercentChange={handleFrameFitTooBigThresholdPercentChange}
           />
         ) : (
         <>
@@ -315,6 +448,9 @@ export default function App() {
                 className="w-full max-w-xs rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-white/20 focus:outline-none"
               />
               <div className="flex items-center gap-3">
+                {isPlanning && (
+                  <SeestarModelSelect value={planningSeestarModel} onChange={handlePlanningSeestarModelChange} />
+                )}
                 <SortControl
                   sortKey={sortKey}
                   sortDirection={sortDirection}
@@ -397,7 +533,18 @@ export default function App() {
                           visibleMetrics={effectiveSelectedMetrics}
                           observingLocation={observingLocation}
                           nightMoonTrack={nightMoonTrack}
+                          moonRatingEnabled={moonRatingEnabled}
+                          moonGoodThresholdDeg={moonGoodThresholdDeg}
+                          moonPerfectThresholdDeg={moonPerfectThresholdDeg}
+                          altitudeRatingEnabled={altitudeRatingEnabled}
+                          altitudeGoodThresholdDeg={altitudeGoodThresholdDeg}
+                          altitudePerfectThresholdDeg={altitudePerfectThresholdDeg}
                           isPlanning={isPlanning}
+                          seestarModel={planningSeestarModel}
+                          frameFitRatingEnabled={frameFitRatingEnabled}
+                          frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
+                          frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
+                          frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
                         />
                       ))}
                     </div>
@@ -412,8 +559,20 @@ export default function App() {
                       visibleMetrics={effectiveSelectedMetrics}
                       observingLocation={observingLocation}
                       nightMoonTrack={nightMoonTrack}
-                      moonCautionThresholdDeg={moonCautionThresholdDeg}
-                      moonCloseThresholdDeg={moonCloseThresholdDeg}
+                      moonRatingEnabled={moonRatingEnabled}
+                      moonGoodThresholdDeg={moonGoodThresholdDeg}
+                      moonPerfectThresholdDeg={moonPerfectThresholdDeg}
+                      altitudeRatingEnabled={altitudeRatingEnabled}
+                      altitudeGoodThresholdDeg={altitudeGoodThresholdDeg}
+                      altitudePerfectThresholdDeg={altitudePerfectThresholdDeg}
+                      moonListMetric={moonListMetric}
+                      altitudeListMetric={altitudeListMetric}
+                      isPlanning={isPlanning}
+                      seestarModel={planningSeestarModel}
+                      frameFitRatingEnabled={frameFitRatingEnabled}
+                      frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
+                      frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
+                      frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
                     />
                   )}
                 </section>
@@ -434,6 +593,11 @@ export default function App() {
           warnings={catalogue.warnings}
           observingLocation={observingLocation}
           nightMoonTrack={nightMoonTrack}
+          seestarModel={planningSeestarModel}
+          frameFitRatingEnabled={frameFitRatingEnabled}
+          frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
+          frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
+          frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
           onClose={() => setSelectedObject(null)}
         />
       )}

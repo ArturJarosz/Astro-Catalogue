@@ -1,6 +1,11 @@
 import type { ObjectInfo, WarningInfo } from '../../electron/shared-types'
 import { formatMetrics, type MetricKey } from '../lib/columns'
+import { formatAngularSize, formatFramePortion } from '../lib/format'
+import { labelFor, rateFrameFit, textClassFor as frameFitTextClassFor } from '../lib/frameFitRating'
+import { getFramePortionPercent } from '../lib/framePortion'
 import type { NightMoonTrackSample } from '../lib/moonSeparation'
+import { getObjectCoordinates } from '../lib/objectCoordinates'
+import type { SeestarModel } from '../lib/seestarModel'
 import { getObjectWarnings } from '../lib/warnings'
 import type { ObservingLocation } from './MoonPanel'
 import { MoonSeparationDetail } from './MoonSeparationDetail'
@@ -14,8 +19,19 @@ interface ObjectCardProps {
   visibleMetrics: Set<MetricKey>
   observingLocation: ObservingLocation | null
   nightMoonTrack: NightMoonTrackSample[] | null
+  moonRatingEnabled: boolean
+  moonGoodThresholdDeg: number
+  moonPerfectThresholdDeg: number
+  altitudeRatingEnabled: boolean
+  altitudeGoodThresholdDeg: number
+  altitudePerfectThresholdDeg: number
   /** Planning view: swaps the frame-type breakdown for a Moon-distance readout. */
   isPlanning: boolean
+  seestarModel: SeestarModel
+  frameFitRatingEnabled: boolean
+  frameFitGoodThresholdPercent: number
+  frameFitMosaicThresholdPercent: number
+  frameFitTooBigThresholdPercent: number
 }
 
 export function ObjectCard({
@@ -27,13 +43,33 @@ export function ObjectCard({
   visibleMetrics,
   observingLocation,
   nightMoonTrack,
+  moonRatingEnabled,
+  moonGoodThresholdDeg,
+  moonPerfectThresholdDeg,
+  altitudeRatingEnabled,
+  altitudeGoodThresholdDeg,
+  altitudePerfectThresholdDeg,
   isPlanning,
+  seestarModel,
+  frameFitRatingEnabled,
+  frameFitGoodThresholdPercent,
+  frameFitMosaicThresholdPercent,
+  frameFitTooBigThresholdPercent,
 }: ObjectCardProps) {
   const grandTotalFrames = object.frameTypes.reduce((sum, ft) => sum + ft.totalFrames, 0)
   const grandTotalExposure = object.frameTypes.reduce((sum, ft) => sum + ft.totalExposureSeconds, 0)
   const grandTotalSize = object.frameTypes.reduce((sum, ft) => sum + ft.totalSizeBytes, 0)
   const objectWarnings = getObjectWarnings(object, warnings)
   const visibleFrameTypeList = object.frameTypes.filter((ft) => visibleFrameTypes.has(ft.name))
+  const coordinates = getObjectCoordinates(object.catalog, object.catalogNumber)
+  const framePortionPercent = getFramePortionPercent(coordinates?.majorArcmin, coordinates?.minorArcmin, seestarModel)
+  const frameFitRating = rateFrameFit(
+    frameFitRatingEnabled,
+    framePortionPercent,
+    frameFitGoodThresholdPercent,
+    frameFitMosaicThresholdPercent,
+    frameFitTooBigThresholdPercent,
+  )
 
   return (
     <div
@@ -81,7 +117,30 @@ export function ObjectCard({
       </div>
 
       {isPlanning ? (
-        <MoonSeparationDetail object={object} observingLocation={observingLocation} nightMoonTrack={nightMoonTrack} />
+        <>
+          {coordinates?.majorArcmin !== undefined && (
+            <p className="mb-1.5 text-xs tabular-nums text-slate-400">
+              <span className="text-slate-500">Size </span>
+              {formatAngularSize(coordinates.majorArcmin, coordinates.minorArcmin)}
+              <span className="text-slate-500"> · Frame </span>
+              <span className={`font-medium ${frameFitTextClassFor(frameFitRating)}`}>
+                {formatFramePortion(framePortionPercent)}
+              </span>
+              {frameFitRating && <span className="text-slate-500"> ({labelFor(frameFitRating)})</span>}
+            </p>
+          )}
+          <MoonSeparationDetail
+            object={object}
+            observingLocation={observingLocation}
+            nightMoonTrack={nightMoonTrack}
+            moonRatingEnabled={moonRatingEnabled}
+            goodThresholdDeg={moonGoodThresholdDeg}
+            perfectThresholdDeg={moonPerfectThresholdDeg}
+            altitudeRatingEnabled={altitudeRatingEnabled}
+            altitudeGoodThresholdDeg={altitudeGoodThresholdDeg}
+            altitudePerfectThresholdDeg={altitudePerfectThresholdDeg}
+          />
+        </>
       ) : visibleFrameTypeList.length === 0 ? (
         <p className="text-xs text-slate-500">No frame-type folders found</p>
       ) : (

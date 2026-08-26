@@ -64,6 +64,43 @@ export interface MoonSeparationResult {
   avgAltitudeDeg: number
 }
 
+/** Which Moon-separation number the list/thumbnail views show for a target. */
+export type MoonListMetric = 'closest' | 'average' | 'current' | 'farthest'
+
+/** Which altitude number the list/thumbnail views show for a target. */
+export type AltitudeListMetric = 'average' | 'max'
+
+export const MOON_LIST_METRIC_LABELS: Record<MoonListMetric, string> = {
+  closest: 'Closest',
+  average: 'Average',
+  current: 'Now',
+  farthest: 'Farthest',
+}
+
+export const ALTITUDE_LIST_METRIC_LABELS: Record<AltitudeListMetric, string> = {
+  average: 'Average',
+  max: 'Max',
+}
+
+/** Picks the Moon-separation number a given MoonListMetric refers to. */
+export function moonListMetricValue(result: MoonSeparationResult, metric: MoonListMetric): number {
+  switch (metric) {
+    case 'closest':
+      return result.minSeparationDeg
+    case 'average':
+      return result.avgSeparationDeg
+    case 'current':
+      return result.currentSeparationDeg
+    case 'farthest':
+      return result.maxSeparationDeg
+  }
+}
+
+/** Picks the altitude number a given AltitudeListMetric refers to. */
+export function altitudeListMetricValue(result: MoonSeparationResult, metric: AltitudeListMetric): number {
+  return metric === 'average' ? result.avgAltitudeDeg : result.maxAltitudeDeg
+}
+
 /**
  * Current, closest, farthest, and average Moon separation, plus peak +
  * average altitude, while the object is above the horizon during night

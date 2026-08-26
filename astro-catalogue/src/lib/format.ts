@@ -57,3 +57,18 @@ export function formatDec(decDeg: number): string {
 export function formatAltitude(altitudeDeg: number): string {
   return `${Math.round(altitudeDeg)}°`
 }
+
+/** Formats angular size on sky (arcmin) as major×minor, e.g. "8.7′ × 6.7′", or just major axis if minor is unknown. */
+export function formatAngularSize(majorArcmin: number | undefined, minorArcmin: number | undefined): string {
+  if (majorArcmin === undefined) return '—'
+  if (minorArcmin === undefined) return `${majorArcmin}′`
+  return `${majorArcmin}′ × ${minorArcmin}′`
+}
+
+/** Formats the portion of a Seestar's frame an object occupies, e.g. "12%", "<1%", ">999%". */
+export function formatFramePortion(percent: number | null): string {
+  if (percent === null) return '—'
+  if (percent < 1) return '<1%'
+  if (percent > 999) return '>999%'
+  return `${Math.round(percent)}%`
+}
