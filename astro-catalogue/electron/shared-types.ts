@@ -118,6 +118,8 @@ export interface AstroCatalogueApi {
   checkSeestarConnection: (sourceDirectory: string) => Promise<boolean>
   listSeestarDirectories: (sourceDirectory: string) => Promise<SeestarSourceDirectory[]>
   selectSeestarTargetDir: () => Promise<string | null>
+  selectObjectImagesDir: () => Promise<string | null>
+  getLocalObjectImage: (imagesPath: string, objectName: string) => Promise<string | null>
   buildSeestarCopyPlan: (
     subDirNames: string[],
     targetDirectory: string,

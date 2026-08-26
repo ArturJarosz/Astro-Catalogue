@@ -16,6 +16,7 @@ interface ObjectListTableProps {
   warnings: WarningInfo[]
   onSelect: (object: ObjectInfo) => void
   showThumbnails?: boolean
+  imagesPath: string
   visibleFrameTypes: Set<string>
   showTotal: boolean
   visibleMetrics: Set<MetricKey>
@@ -45,6 +46,7 @@ export function ObjectListTable({
   warnings,
   onSelect,
   showThumbnails = false,
+  imagesPath,
   visibleFrameTypes,
   showTotal,
   visibleMetrics,
@@ -128,7 +130,7 @@ export function ObjectListTable({
               >
                 {showThumbnails && (
                   <td className="px-3 py-2">
-                    <ObjectThumbnail object={object} />
+                    <ObjectThumbnail object={object} imagesPath={imagesPath} />
                   </td>
                 )}
                 <td className="px-3 py-2">

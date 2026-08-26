@@ -85,6 +85,34 @@ ipcMain.handle('select-seestar-target-dir', async () => {
   return result.filePaths[0]
 })
 
+ipcMain.handle('select-object-images-dir', async () => {
+  if (!mainWindow) return null
+  const result = await dialog.showOpenDialog(mainWindow, {
+    properties: ['openDirectory'],
+  })
+  if (result.canceled || result.filePaths.length === 0) return null
+  return result.filePaths[0]
+})
+
+const LOCAL_OBJECT_IMAGE_EXTENSIONS = ['.jpg', '.jpeg', '.png']
+
+ipcMain.handle('get-local-object-image', async (_event, imagesPath: string, objectName: string) => {
+  if (!imagesPath) return null
+  let entries: string[]
+  try {
+    entries = await fs.readdir(imagesPath)
+  } catch {
+    return null
+  }
+  const match = entries.find((entry) => {
+    const ext = path.extname(entry).toLowerCase()
+    if (!LOCAL_OBJECT_IMAGE_EXTENSIONS.includes(ext)) return false
+    return path.basename(entry, path.extname(entry)).toLowerCase() === objectName.toLowerCase()
+  })
+  if (!match) return null
+  return `file://${path.join(imagesPath, match)}`
+})
+
 ipcMain.handle(
   'build-seestar-copy-plan',
   async (

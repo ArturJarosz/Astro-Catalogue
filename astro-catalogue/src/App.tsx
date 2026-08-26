@@ -27,6 +27,7 @@ import {
   type MoonListMetric,
 } from './lib/moonSeparation'
 import { DEEP_SKY_CATALOGS } from './lib/objectCoordinates'
+import { FILTERABLE_OBJECT_TYPES } from './lib/objectType'
 import { getProposedObjects } from './lib/proposedObjects'
 import { DEFAULT_SEESTAR_MODEL, type SeestarModel } from './lib/seestarModel'
 import type { SortDirection, SortKey } from './lib/sortObjects'
@@ -193,6 +194,15 @@ export default function App() {
     localStorage.setItem('seestarSourceDirectory', directory)
   }
 
+  const [objectImagesPath, setObjectImagesPath] = useState<string>(
+    () => localStorage.getItem('objectImagesPath') ?? '',
+  )
+
+  function handleObjectImagesPathChange(path: string) {
+    setObjectImagesPath(path)
+    localStorage.setItem('objectImagesPath', path)
+  }
+
   const [planningSeestarModel, setPlanningSeestarModel] = useState<SeestarModel>(
     () => (localStorage.getItem('planningSeestarModel') as SeestarModel | null) ?? DEFAULT_SEESTAR_MODEL,
   )
@@ -253,6 +263,21 @@ export default function App() {
       if (next.has(catalog)) next.delete(catalog)
       else next.add(catalog)
       localStorage.setItem('proposalCatalogs', JSON.stringify([...next]))
+      return next
+    })
+  }
+
+  const [proposalTypes, setProposalTypes] = useState<Set<string>>(() => {
+    const stored = localStorage.getItem('proposalTypes')
+    return stored ? new Set(JSON.parse(stored) as string[]) : new Set<string>(FILTERABLE_OBJECT_TYPES)
+  })
+
+  function handleToggleProposalType(type: string) {
+    setProposalTypes((prev) => {
+      const next = new Set(prev)
+      if (next.has(type)) next.delete(type)
+      else next.add(type)
+      localStorage.setItem('proposalTypes', JSON.stringify([...next]))
       return next
     })
   }
@@ -420,6 +445,7 @@ export default function App() {
       existingCatalogueKeys,
       {
         catalogs: proposalCatalogs,
+        types: proposalTypes,
         minFramePortionPercent: proposalMinFramePortionPercent,
         maxFramePortionPercent: proposalMaxFramePortionPercent,
         minMoonSeparationDeg: proposalMinMoonSeparationDeg,
@@ -433,6 +459,7 @@ export default function App() {
     isPlanning,
     existingCatalogueKeys,
     proposalCatalogs,
+    proposalTypes,
     proposalMinFramePortionPercent,
     proposalMaxFramePortionPercent,
     proposalMinMoonSeparationDeg,
@@ -506,6 +533,8 @@ export default function App() {
             onAltitudeListMetricChange={handleAltitudeListMetricChange}
             seestarSourceDirectory={seestarSourceDirectory}
             onSeestarSourceDirectoryChange={handleSeestarSourceDirectoryChange}
+            objectImagesPath={objectImagesPath}
+            onObjectImagesPathChange={handleObjectImagesPathChange}
             frameFitRatingEnabled={frameFitRatingEnabled}
             onFrameFitRatingEnabledChange={handleFrameFitRatingEnabledChange}
             frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
@@ -589,7 +618,7 @@ export default function App() {
           ) : isPlanning ? (
             <div className="space-y-10">
               <section>
-                <h2 className="mb-4 text-base font-bold text-slate-100">Already in catalogue</h2>
+                <h2 className="mb-4 text-xl font-bold text-slate-100">Already in catalogue</h2>
                 {filteredGroups.length === 0 ? (
                   <p className="text-sm text-slate-500">No catalogued objects match your filter</p>
                 ) : (
@@ -617,15 +646,18 @@ export default function App() {
                     frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
                     frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
                     frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
+                    imagesPath={objectImagesPath}
                   />
                 )}
               </section>
 
               <section>
-                <h2 className="mb-3 text-base font-bold text-slate-100">Propositions</h2>
+                <h2 className="mb-3 text-xl font-bold text-slate-100">Propositions</h2>
                 <PropositionFilters
                   catalogs={proposalCatalogs}
                   onToggleCatalog={handleToggleProposalCatalog}
+                  types={proposalTypes}
+                  onToggleType={handleToggleProposalType}
                   minFramePortionPercent={proposalMinFramePortionPercent}
                   onMinFramePortionPercentChange={handleProposalMinFramePortionPercentChange}
                   maxFramePortionPercent={proposalMaxFramePortionPercent}
@@ -673,6 +705,7 @@ export default function App() {
                     frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
                     frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
                     frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
+                    imagesPath={objectImagesPath}
                   />
                 )}
               </section>
@@ -707,6 +740,7 @@ export default function App() {
               frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
               frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
               frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
+              imagesPath={objectImagesPath}
             />
           )}
         </main>
@@ -727,6 +761,7 @@ export default function App() {
           frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
           frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
           frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
+          imagesPath={objectImagesPath}
           onClose={() => setSelectedObject(null)}
         />
       )}

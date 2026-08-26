@@ -19,6 +19,9 @@ const api: AstroCatalogueApi = {
   listSeestarDirectories: (sourceDirectory: string) =>
     ipcRenderer.invoke('list-seestar-directories', sourceDirectory),
   selectSeestarTargetDir: () => ipcRenderer.invoke('select-seestar-target-dir'),
+  selectObjectImagesDir: () => ipcRenderer.invoke('select-object-images-dir'),
+  getLocalObjectImage: (imagesPath: string, objectName: string) =>
+    ipcRenderer.invoke('get-local-object-image', imagesPath, objectName),
   buildSeestarCopyPlan: (
     subDirNames: string[],
     targetDirectory: string,

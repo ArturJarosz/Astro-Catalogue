@@ -22,6 +22,8 @@ export interface ProposalFilters {
   minMoonSeparationDeg: number | null
   /** Minimum average altitude while up tonight. */
   minAverageAltitudeDeg: number | null
+  /** Object type codes to include (see objectType.ts) — objects with an unselected/unknown type are excluded. */
+  types: Set<string>
 }
 
 /**
@@ -47,6 +49,8 @@ export function getProposedObjects(
     if (!filters.catalogs.has(catalog)) continue
 
     const coordinates = coordinatesByKey[key]
+
+    if (!coordinates.type || !filters.types.has(coordinates.type)) continue
 
     if (filters.minFramePortionPercent !== null || filters.maxFramePortionPercent !== null) {
       const framePortionPercent = getFramePortionPercent(coordinates.majorArcmin, coordinates.minorArcmin, seestarModel)

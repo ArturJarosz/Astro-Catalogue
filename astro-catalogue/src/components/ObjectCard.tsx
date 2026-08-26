@@ -5,6 +5,7 @@ import { labelFor, rateFrameFit, textClassFor as frameFitTextClassFor } from '..
 import { getFramePortionPercent } from '../lib/framePortion'
 import type { NightMoonTrackSample } from '../lib/moonSeparation'
 import { getObjectCoordinates } from '../lib/objectCoordinates'
+import { labelForObjectType } from '../lib/objectType'
 import type { SeestarModel } from '../lib/seestarModel'
 import { getObjectWarnings } from '../lib/warnings'
 import type { ObservingLocation } from './MoonPanel'
@@ -62,6 +63,7 @@ export function ObjectCard({
   const objectWarnings = getObjectWarnings(object, warnings)
   const visibleFrameTypeList = object.frameTypes.filter((ft) => visibleFrameTypes.has(ft.name))
   const coordinates = getObjectCoordinates(object.catalog, object.catalogNumber)
+  const objectTypeLabel = labelForObjectType(coordinates?.type)
   const framePortionPercent = getFramePortionPercent(coordinates?.majorArcmin, coordinates?.minorArcmin, seestarModel)
   const frameFitRating = rateFrameFit(
     frameFitRatingEnabled,
@@ -91,6 +93,11 @@ export function ObjectCard({
               {object.name}
               {object.isMosaic && <span className="text-slate-400"> (Mosaic)</span>}
             </span>
+            {objectTypeLabel && (
+              <span className="shrink-0 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-300">
+                {objectTypeLabel}
+              </span>
+            )}
             {objectWarnings.length > 0 && (
               <span
                 className="flex shrink-0 items-center gap-0.5 text-amber-400"

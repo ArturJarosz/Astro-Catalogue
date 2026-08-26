@@ -42,6 +42,8 @@ interface ConfigurationViewProps {
   onAltitudeListMetricChange: (metric: AltitudeListMetric) => void
   seestarSourceDirectory: string
   onSeestarSourceDirectoryChange: (directory: string) => void
+  objectImagesPath: string
+  onObjectImagesPathChange: (path: string) => void
   frameFitRatingEnabled: boolean
   onFrameFitRatingEnabledChange: (enabled: boolean) => void
   frameFitGoodThresholdPercent: number
@@ -114,6 +116,8 @@ export function ConfigurationView({
   onAltitudeListMetricChange,
   seestarSourceDirectory,
   onSeestarSourceDirectoryChange,
+  objectImagesPath,
+  onObjectImagesPathChange,
   frameFitRatingEnabled,
   onFrameFitRatingEnabledChange,
   frameFitGoodThresholdPercent,
@@ -175,6 +179,11 @@ export function ConfigurationView({
     const trimmed = sourceDirectoryInput.trim()
     if (!trimmed) return
     onSeestarSourceDirectoryChange(trimmed)
+  }
+
+  async function handleBrowseObjectImagesPath() {
+    const dir = await window.astroCatalogue.selectObjectImagesDir()
+    if (dir) onObjectImagesPathChange(dir)
   }
 
   function handleSaveLocation() {
@@ -326,6 +335,32 @@ export function ConfigurationView({
           </code>
         </p>
       </section>
+
+      <section className="rounded-xl border border-white/10 p-4">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Object images</h2>
+        <div className="flex items-center gap-3">
+          <input
+            type="text"
+            value={objectImagesPath}
+            onChange={(e) => onObjectImagesPathChange(e.target.value)}
+            placeholder="e.g. /home/you/astro-images"
+            spellCheck={false}
+            className="min-w-0 flex-1 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 font-mono text-sm text-slate-200 placeholder:text-slate-500 focus:border-white/20 focus:outline-none"
+          />
+          <button
+            onClick={handleBrowseObjectImagesPath}
+            className="shrink-0 rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-xs font-medium text-slate-200 transition hover:bg-white/10"
+          >
+            Browse…
+          </button>
+        </div>
+        <p className="mt-2 text-xs text-slate-500">
+          A folder of your own object pictures. If it contains a <code className="text-slate-400">.jpg</code> or{' '}
+          <code className="text-slate-400">.png</code> file whose name matches an object (e.g.{' '}
+          <code className="text-slate-400">M 31.jpg</code>), that picture is shown everywhere instead of the
+          Wikipedia thumbnail. Objects without a matching file keep using Wikipedia.
+        </p>
+      </section>
       </>
       )}
 
@@ -405,7 +440,7 @@ export function ConfigurationView({
             className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 focus:border-white/20 focus:outline-none"
           >
             {MOON_PANEL_NIGHTS_OPTIONS.map((n) => (
-              <option key={n} value={n}>
+              <option key={n} value={n} className="bg-slate-800">
                 {n}
               </option>
             ))}
@@ -481,7 +516,7 @@ export function ConfigurationView({
             className="w-40 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 focus:border-white/20 focus:outline-none"
           >
             {(Object.keys(MOON_LIST_METRIC_LABELS) as MoonListMetric[]).map((metric) => (
-              <option key={metric} value={metric}>
+              <option key={metric} value={metric} className="bg-slate-800">
                 {MOON_LIST_METRIC_LABELS[metric]}
               </option>
             ))}
@@ -552,7 +587,7 @@ export function ConfigurationView({
             className="w-40 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 focus:border-white/20 focus:outline-none"
           >
             {(Object.keys(ALTITUDE_LIST_METRIC_LABELS) as AltitudeListMetric[]).map((metric) => (
-              <option key={metric} value={metric}>
+              <option key={metric} value={metric} className="bg-slate-800">
                 {ALTITUDE_LIST_METRIC_LABELS[metric]}
               </option>
             ))}

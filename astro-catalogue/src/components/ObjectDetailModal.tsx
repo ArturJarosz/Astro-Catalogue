@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
-import type { ObjectInfo, ObjectSummary, WarningInfo } from '../../electron/shared-types'
+import { useEffect, useMemo } from 'react'
+import type { ObjectInfo, WarningInfo } from '../../electron/shared-types'
 import { AltitudeChart } from './AltitudeChart'
 import type { ObservingLocation } from './MoonPanel'
 import { formatAltitude, formatAngularSize, formatExposure, formatFramePortion, formatRa, formatSize } from '../lib/format'
@@ -9,7 +9,9 @@ import { getFramePortionPercent } from '../lib/framePortion'
 import { getMoonSeparationForObject, type NightMoonTrackSample } from '../lib/moonSeparation'
 import { getObjectCoordinates } from '../lib/objectCoordinates'
 import { getObjectVisibility } from '../lib/objectVisibility'
+import { labelForObjectType } from '../lib/objectType'
 import type { SeestarModel } from '../lib/seestarModel'
+import { useObjectImage } from '../lib/useObjectImage'
 import { getObjectWarnings } from '../lib/warnings'
 
 interface ObjectDetailModalProps {
@@ -22,6 +24,7 @@ interface ObjectDetailModalProps {
   frameFitGoodThresholdPercent: number
   frameFitMosaicThresholdPercent: number
   frameFitTooBigThresholdPercent: number
+  imagesPath: string
   onClose: () => void
 }
 
@@ -40,13 +43,14 @@ export function ObjectDetailModal({
   frameFitGoodThresholdPercent,
   frameFitMosaicThresholdPercent,
   frameFitTooBigThresholdPercent,
+  imagesPath,
   onClose,
 }: ObjectDetailModalProps) {
-  const [summary, setSummary] = useState<ObjectSummary | null>(null)
-  const [loadingSummary, setLoadingSummary] = useState(true)
+  const { imageUrl, summary, loading: loadingSummary } = useObjectImage(object, imagesPath, true)
   const objectWarnings = getObjectWarnings(object, warnings)
 
   const coordinates = useMemo(() => getObjectCoordinates(object.catalog, object.catalogNumber), [object.catalog, object.catalogNumber])
+  const objectTypeLabel = labelForObjectType(coordinates?.type)
   const framePortionPercent = useMemo(
     () => getFramePortionPercent(coordinates?.majorArcmin, coordinates?.minorArcmin, seestarModel),
     [coordinates, seestarModel],
@@ -94,23 +98,6 @@ export function ObjectDetailModal({
   }, [observingLocation, nightMoonTrack, coordinates])
 
   useEffect(() => {
-    let cancelled = false
-
-    window.astroCatalogue
-      .getObjectSummary(object.name, object.catalog, object.catalogNumber)
-      .then((result) => {
-        if (!cancelled) setSummary(result)
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingSummary(false)
-      })
-
-    return () => {
-      cancelled = true
-    }
-  }, [object.name, object.catalog, object.catalogNumber])
-
-  useEffect(() => {
     function handleKeyDown(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose()
     }
@@ -143,6 +130,11 @@ export function ObjectDetailModal({
             <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-slate-400">
               {object.catalog}
             </span>
+            {objectTypeLabel && (
+              <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+                {objectTypeLabel}
+              </span>
+            )}
             {coordinates?.majorArcmin !== undefined && (
               <span className="rounded-full border border-sky-400/30 bg-sky-400/10 px-2 py-0.5 text-[10px] font-semibold tabular-nums text-sky-300">
                 Size {formatAngularSize(coordinates.majorArcmin, coordinates.minorArcmin)} · Frame{' '}
@@ -167,8 +159,8 @@ export function ObjectDetailModal({
             <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black/30">
               {loadingSummary ? (
                 <span className="text-xs text-slate-600">Loading…</span>
-              ) : summary?.thumbnailUrl ? (
-                <img src={summary.thumbnailUrl} alt={object.name} className="h-full w-full object-cover" />
+              ) : imageUrl ? (
+                <img src={imageUrl} alt={object.name} className="h-full w-full object-cover" />
               ) : (
                 <span className="px-3 text-center text-xs text-slate-600">No image available</span>
               )}

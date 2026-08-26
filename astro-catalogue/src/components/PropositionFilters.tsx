@@ -1,10 +1,14 @@
+import { MultiSelectDropdown } from './MultiSelectDropdown'
 import { DEEP_SKY_CATALOGS } from '../lib/objectCoordinates'
+import { FILTERABLE_OBJECT_TYPES, labelForObjectType } from '../lib/objectType'
 
 const PROPOSAL_LIMIT_OPTIONS = [20, 50, 100, 200, 500]
 
 interface PropositionFiltersProps {
   catalogs: Set<string>
   onToggleCatalog: (catalog: string) => void
+  types: Set<string>
+  onToggleType: (type: string) => void
   minFramePortionPercent: number | null
   onMinFramePortionPercentChange: (percent: number | null) => void
   maxFramePortionPercent: number | null
@@ -36,6 +40,8 @@ function parseOptionalNumberInput(value: string, onChange: (n: number | null) =>
 export function PropositionFilters({
   catalogs,
   onToggleCatalog,
+  types,
+  onToggleType,
   minFramePortionPercent,
   onMinFramePortionPercentChange,
   maxFramePortionPercent,
@@ -50,22 +56,20 @@ export function PropositionFilters({
   return (
     <div className="mb-4 rounded-lg border border-white/10 bg-white/5 p-3">
       <div className="flex flex-wrap items-end gap-x-6 gap-y-3">
-        <div>
-          <p className="mb-1.5 text-[11px] uppercase tracking-wide text-slate-500">Catalogues</p>
-          <div className="flex flex-wrap gap-3">
-            {DEEP_SKY_CATALOGS.map((catalog) => (
-              <label key={catalog} className="flex items-center gap-1.5 text-xs text-slate-400">
-                <input
-                  type="checkbox"
-                  checked={catalogs.has(catalog)}
-                  onChange={() => onToggleCatalog(catalog)}
-                  className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 accent-sky-500"
-                />
-                {catalog}
-              </label>
-            ))}
-          </div>
-        </div>
+        <MultiSelectDropdown
+          label="Catalogues"
+          options={DEEP_SKY_CATALOGS}
+          selected={catalogs}
+          onToggle={onToggleCatalog}
+        />
+
+        <MultiSelectDropdown
+          label="Object type"
+          options={FILTERABLE_OBJECT_TYPES}
+          selected={types}
+          onToggle={onToggleType}
+          optionLabel={(type) => labelForObjectType(type) ?? type}
+        />
 
         <label className="flex flex-col gap-1 text-xs text-slate-400">
           Min frame portion (%)
@@ -125,7 +129,7 @@ export function PropositionFilters({
             className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 focus:border-white/20 focus:outline-none"
           >
             {PROPOSAL_LIMIT_OPTIONS.map((option) => (
-              <option key={option} value={option}>
+              <option key={option} value={option} className="bg-slate-800">
                 {option}
               </option>
             ))}

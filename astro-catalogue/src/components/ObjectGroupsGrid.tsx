@@ -32,6 +32,7 @@ interface ObjectGroupsGridProps {
   frameFitGoodThresholdPercent: number
   frameFitMosaicThresholdPercent: number
   frameFitTooBigThresholdPercent: number
+  imagesPath: string
 }
 
 /**
@@ -64,6 +65,7 @@ export function ObjectGroupsGrid({
   frameFitGoodThresholdPercent,
   frameFitMosaicThresholdPercent,
   frameFitTooBigThresholdPercent,
+  imagesPath,
 }: ObjectGroupsGridProps) {
   return (
     <div className="space-y-10">
@@ -151,6 +153,7 @@ export function ObjectGroupsGrid({
                 frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
                 frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
                 frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
+                imagesPath={imagesPath}
               />
             )}
           </section>

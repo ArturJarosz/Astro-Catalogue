@@ -5,6 +5,8 @@ export interface CelestialCoordinates {
   decDeg: number
   majorArcmin?: number
   minorArcmin?: number
+  /** Raw OpenNGC type code (e.g. "G", "PN") — see src/lib/objectType.ts for the display label. */
+  type?: string
 }
 
 const coordinatesByKey = deepSkyCoordinates as Record<string, CelestialCoordinates>
