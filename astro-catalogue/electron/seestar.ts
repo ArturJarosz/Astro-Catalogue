@@ -19,6 +19,45 @@ const SUB_SUFFIX = '_sub'
 const FILE_PATTERN =
   /^Light_.+_(?<exposure>\d+(?:\.\d+)?s)_(?<type>IRCUT|LP)_(?<date>\d{8})-\d{6}\.(?<extension>[A-Za-z0-9]+)$/i
 
+// Sun/Moon/planetary captures save as one continuous video clip instead of individual light
+// frames, e.g. "2026-08-28-225936-Lunar-RAW.avi". These aren't per-frame exposures, so they
+// get a fixed "0s" placeholder for the {exposure} token — harmless, since video formats never
+// count towards frame/exposure totals (see file-types.ts) — and their target name (Lunar,
+// Solar, …) becomes {type}.
+const VIDEO_FILE_PATTERN =
+  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})-\d{6}-(?<target>[A-Za-z0-9]+)-RAW\.(?<extension>[A-Za-z0-9]+)$/i
+
+interface MatchedFile {
+  type: string
+  extension: string
+  targetDate: string
+  targetExposure: string
+}
+
+function matchFileName(fileName: string): MatchedFile | null {
+  const lightMatch = FILE_PATTERN.exec(fileName)
+  if (lightMatch?.groups) {
+    return {
+      type: lightMatch.groups.type.toUpperCase(),
+      extension: lightMatch.groups.extension.toLowerCase(),
+      targetDate: formatTargetDate(lightMatch.groups.date),
+      targetExposure: formatTargetExposure(lightMatch.groups.exposure),
+    }
+  }
+
+  const videoMatch = VIDEO_FILE_PATTERN.exec(fileName)
+  if (videoMatch?.groups) {
+    return {
+      type: videoMatch.groups.target,
+      extension: videoMatch.groups.extension.toLowerCase(),
+      targetDate: formatTargetDate(`${videoMatch.groups.year}${videoMatch.groups.month}${videoMatch.groups.day}`),
+      targetExposure: '0s',
+    }
+  }
+
+  return null
+}
+
 function fileExtension(fileName: string): string {
   return path.extname(fileName).replace(/^\./, '').toLowerCase()
 }
@@ -84,16 +123,13 @@ export function buildCopyPlan(
     const groups = new Map<string, SeestarSubDirGroupSummary>()
 
     for (const file of files) {
-      const match = FILE_PATTERN.exec(file.name)
-      if (!match?.groups) {
+      const match = matchFileName(file.name)
+      if (!match) {
         invalidFiles.push({ subDirectory: subDirName, fileName: file.name })
         continue
       }
 
-      const type = match.groups.type.toUpperCase()
-      const extension = match.groups.extension.toLowerCase()
-      const targetDate = formatTargetDate(match.groups.date)
-      const targetExposure = formatTargetExposure(match.groups.exposure)
+      const { type, extension, targetDate, targetExposure } = match
 
       const groupKey = `${targetDate}|${type}|${targetExposure}|${extension}`
       const existingGroup = groups.get(groupKey)

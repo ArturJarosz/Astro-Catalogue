@@ -384,7 +384,7 @@ export function ConfigurationView({
             </tr>
             <tr className="border-t border-white/5">
               <td className="py-1 pr-4 font-mono text-slate-200">{'{type}'}</td>
-              <td className="py-1 pr-4">Frame type, IRCUT or LP</td>
+              <td className="py-1 pr-4">Frame type — IRCUT or LP for light frames, or the target name (e.g. Lunar) for Sun/Moon/planet video</td>
               <td className="py-1 font-mono">LP</td>
             </tr>
             <tr className="border-t border-white/5">
