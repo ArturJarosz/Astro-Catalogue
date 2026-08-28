@@ -8,6 +8,7 @@ import type {
   WarningInfo,
 } from '../../electron/shared-types'
 import type { ConnectionStatus } from '../App'
+import { formatSize } from '../lib/format'
 import { WarningsPanel } from './WarningsPanel'
 
 /** Total number of files per extension across the given directories, keyed by lower-case extension. */
@@ -436,13 +437,16 @@ export function SeestarView({
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all"
                     style={{
-                      width: copyProgress ? `${Math.round((copyProgress.copied / copyProgress.total) * 100)}%` : '0%',
+                      width:
+                        copyProgress && copyProgress.totalBytes > 0
+                          ? `${Math.round((copyProgress.copiedBytes / copyProgress.totalBytes) * 100)}%`
+                          : '0%',
                     }}
                   />
                 </div>
                 <p className="mt-1 text-xs text-slate-400">
                   {copyProgress
-                    ? `${copyProgress.copied} / ${copyProgress.total} — ${copyProgress.fileName}`
+                    ? `${formatSize(copyProgress.copiedBytes)} / ${formatSize(copyProgress.totalBytes)} · ${copyProgress.copiedFiles} / ${copyProgress.totalFiles} files — ${copyProgress.fileName}`
                     : 'Starting…'}
                 </p>
               </div>

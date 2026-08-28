@@ -105,6 +105,7 @@ export interface SeestarCopyItem {
   targetDate: string
   targetExposure: string
   alreadyExists: boolean
+  sizeBytes: number
 }
 
 export interface SeestarCopyPlan {
@@ -114,8 +115,11 @@ export interface SeestarCopyPlan {
 }
 
 export interface SeestarCopyProgress {
-  copied: number
-  total: number
+  copiedFiles: number
+  totalFiles: number
+  /** Bytes copied so far across every file, including partial progress on the current one — drives the progress bar so one large video file still shows smooth movement. */
+  copiedBytes: number
+  totalBytes: number
   fileName: string
 }
 

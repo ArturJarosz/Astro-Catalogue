@@ -7,6 +7,7 @@ import {
   DEFAULT_SEESTAR_SOURCE_DIR,
   type SeestarCopyItem,
   type SeestarCopyPlan,
+  type SeestarCopyProgress,
   type SeestarInvalidFile,
   type SeestarSourceDirectory,
   type SeestarSubDirGroupSummary,
@@ -155,9 +156,10 @@ export function buildCopyPlan(
         }),
       )
       const destinationPath = path.join(destinationDirectory, file.name)
+      const sourcePath = path.join(subDirPath, file.name)
 
       copyItems.push({
-        sourcePath: path.join(subDirPath, file.name),
+        sourcePath,
         destinationPath,
         destinationDirectory,
         fileName: file.name,
@@ -167,6 +169,7 @@ export function buildCopyPlan(
         targetDate,
         targetExposure,
         alreadyExists: fs.existsSync(destinationPath),
+        sizeBytes: fs.statSync(sourcePath).size,
       })
     }
 
@@ -183,22 +186,55 @@ export function buildCopyPlan(
   return { subDirSummaries, invalidFiles, copyItems }
 }
 
-export function executeCopy(
+const PROGRESS_THROTTLE_MS = 150
+
+/** Copies one file via streams (not fs.copyFileSync) so large files yield to the event loop
+ * between chunks instead of blocking the whole main process — and IPC/UI — until done. */
+function copyFileStreaming(sourcePath: string, destinationPath: string, onChunk: (bytesRead: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const readStream = fs.createReadStream(sourcePath)
+    const writeStream = fs.createWriteStream(destinationPath)
+    readStream.on('data', (chunk) => onChunk(chunk.length))
+    readStream.on('error', reject)
+    writeStream.on('error', reject)
+    writeStream.on('finish', resolve)
+    readStream.pipe(writeStream)
+  })
+}
+
+export async function executeCopy(
   items: SeestarCopyItem[],
   overwrite: boolean,
-  onProgress?: (copied: number, total: number, fileName: string) => void,
-): number {
+  onProgress?: (progress: SeestarCopyProgress) => void,
+): Promise<number> {
   const toCopy = items.filter((item) => overwrite || !item.alreadyExists)
   const directories = new Set(toCopy.map((item) => item.destinationDirectory))
   for (const dir of directories) {
     fs.mkdirSync(dir, { recursive: true })
   }
 
-  let copied = 0
-  for (const item of toCopy) {
-    fs.copyFileSync(item.sourcePath, item.destinationPath)
-    copied += 1
-    onProgress?.(copied, toCopy.length, item.fileName)
+  const totalFiles = toCopy.length
+  const totalBytes = toCopy.reduce((sum, item) => sum + item.sizeBytes, 0)
+  let copiedFiles = 0
+  let copiedBytesBeforeCurrentFile = 0
+  let lastEmitAt = 0
+
+  function emit(fileName: string, copiedBytes: number, force = false) {
+    const now = Date.now()
+    if (!force && now - lastEmitAt < PROGRESS_THROTTLE_MS) return
+    lastEmitAt = now
+    onProgress?.({ copiedFiles, totalFiles, copiedBytes, totalBytes, fileName })
   }
-  return copied
+
+  for (const item of toCopy) {
+    let fileBytesCopied = 0
+    await copyFileStreaming(item.sourcePath, item.destinationPath, (bytesRead) => {
+      fileBytesCopied += bytesRead
+      emit(item.fileName, copiedBytesBeforeCurrentFile + fileBytesCopied)
+    })
+    copiedBytesBeforeCurrentFile += item.sizeBytes
+    copiedFiles += 1
+    emit(item.fileName, copiedBytesBeforeCurrentFile, true)
+  }
+  return copiedFiles
 }
