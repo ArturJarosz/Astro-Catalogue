@@ -36,11 +36,11 @@ function SidebarItem({ label, count, active, onClick }: SidebarItemProps) {
     <button
       onClick={onClick}
       className={`flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
-        active ? 'bg-white/10 text-slate-100' : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+        active ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:bg-white/5 hover:text-slate-200'
       }`}
     >
       <span>{label}</span>
-      <span className="text-xs text-slate-500">({count})</span>
+      <span className="text-xs text-slate-400">({count})</span>
     </button>
   )
 }

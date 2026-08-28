@@ -2,7 +2,8 @@ import { DatabaseSync } from 'node:sqlite'
 import path from 'node:path'
 import fs from 'node:fs'
 import { app } from 'electron'
-import type { CatalogueData, ObjectInfo, WarningInfo } from './shared-types'
+import { mergeFileTypes } from './file-types'
+import type { CatalogueData, FileTypeInfo, ObjectInfo, WarningInfo } from './shared-types'
 
 let db: DatabaseSync
 
@@ -41,6 +42,14 @@ export function initDb(): void {
       capture_seconds INTEGER NOT NULL,
       frame_count INTEGER NOT NULL,
       folder_path TEXT NOT NULL,
+      size_bytes INTEGER NOT NULL DEFAULT 0
+    );
+
+    CREATE TABLE IF NOT EXISTS session_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      session_id INTEGER NOT NULL REFERENCES sessions(id) ON DELETE CASCADE,
+      extension TEXT NOT NULL,
+      count INTEGER NOT NULL,
       size_bytes INTEGER NOT NULL DEFAULT 0
     );
 
@@ -89,6 +98,9 @@ export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings:
     const insertSession = db.prepare(
       'INSERT INTO sessions (frame_type_id, date, capture_seconds, frame_count, folder_path, size_bytes) VALUES (?, ?, ?, ?, ?, ?)',
     )
+    const insertSessionFile = db.prepare(
+      'INSERT INTO session_files (session_id, extension, count, size_bytes) VALUES (?, ?, ?, ?)',
+    )
     const insertWarning = db.prepare('INSERT INTO warnings (path, message) VALUES (?, ?)')
 
     for (const obj of objects) {
@@ -98,7 +110,7 @@ export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings:
         const ftResult = insertFrameType.run(objectId, ft.name)
         const frameTypeId = Number(ftResult.lastInsertRowid)
         for (const session of ft.sessions) {
-          insertSession.run(
+          const sessionResult = insertSession.run(
             frameTypeId,
             session.date,
             session.captureSeconds,
@@ -106,6 +118,10 @@ export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings:
             session.folderPath,
             session.sizeBytes,
           )
+          const sessionId = Number(sessionResult.lastInsertRowid)
+          for (const fileType of session.fileTypes) {
+            insertSessionFile.run(sessionId, fileType.extension, fileType.count, fileType.sizeBytes)
+          }
         }
       }
     }
@@ -150,9 +166,10 @@ export function loadCatalogue(): CatalogueData {
     const frameTypes = frameTypeRows.map((ftRow) => {
       const sessionRows = db
         .prepare(
-          'SELECT date, capture_seconds, frame_count, folder_path, size_bytes FROM sessions WHERE frame_type_id = ? ORDER BY date',
+          'SELECT id, date, capture_seconds, frame_count, folder_path, size_bytes FROM sessions WHERE frame_type_id = ? ORDER BY date',
         )
         .all(ftRow.id) as {
+        id: number
         date: string
         capture_seconds: number
         frame_count: number
@@ -160,19 +177,31 @@ export function loadCatalogue(): CatalogueData {
         size_bytes: number
       }[]
 
-      const sessions = sessionRows.map((s) => ({
-        date: s.date,
-        captureSeconds: s.capture_seconds,
-        frameCount: s.frame_count,
-        folderPath: s.folder_path,
-        sizeBytes: s.size_bytes,
-      }))
+      const sessions = sessionRows.map((s) => {
+        const fileTypeRows = db
+          .prepare('SELECT extension, count, size_bytes FROM session_files WHERE session_id = ?')
+          .all(s.id) as { extension: string; count: number; size_bytes: number }[]
+        const fileTypes: FileTypeInfo[] = mergeFileTypes([
+          fileTypeRows.map((f) => ({ extension: f.extension, count: f.count, sizeBytes: f.size_bytes })),
+        ])
+
+        return {
+          date: s.date,
+          captureSeconds: s.capture_seconds,
+          frameCount: s.frame_count,
+          folderPath: s.folder_path,
+          sizeBytes: s.size_bytes,
+          fileTypes,
+        }
+      })
 
       const totalFrames = sessions.reduce((sum, s) => sum + s.frameCount, 0)
       const totalExposureSeconds = sessions.reduce((sum, s) => sum + s.frameCount * s.captureSeconds, 0)
       const totalSizeBytes = sessions.reduce((sum, s) => sum + s.sizeBytes, 0)
 
-      return { name: ftRow.name, sessions, totalFrames, totalExposureSeconds, totalSizeBytes }
+      const fileTypes = mergeFileTypes(sessions.map((s) => s.fileTypes))
+
+      return { name: ftRow.name, sessions, totalFrames, totalExposureSeconds, totalSizeBytes, fileTypes }
     })
 
     return {

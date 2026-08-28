@@ -6,10 +6,11 @@ import {
   type ObjectInfo,
 } from '../electron/shared-types'
 import { AppNav, type AppSection } from './components/AppNav'
+import { CatalogueSummary } from './components/CatalogueSummary'
 import { ColumnFilter } from './components/ColumnFilter'
 import { ConfigurationView } from './components/ConfigurationView'
 import { Header } from './components/Header'
-import { MoonPanel, type ObservingLocation } from './components/MoonPanel'
+import { MoonPanel } from './components/MoonPanel'
 import { ObjectDetailModal } from './components/ObjectDetailModal'
 import { ObjectGroupsGrid } from './components/ObjectGroupsGrid'
 import { PropositionFilters } from './components/PropositionFilters'
@@ -26,8 +27,11 @@ import {
   type AltitudeListMetric,
   type MoonListMetric,
 } from './lib/moonSeparation'
+import { summarizeObjects } from './lib/catalogueSummary'
 import { DEEP_SKY_CATALOGS } from './lib/objectCoordinates'
+import { OBSERVING_LOCATION_STORAGE_KEY, type ObservingLocation } from './lib/observingLocation'
 import { FILTERABLE_OBJECT_TYPES } from './lib/objectType'
+import type { ObjectTypeColorKey } from './lib/objectTypeColor'
 import { getProposedObjects } from './lib/proposedObjects'
 import { DEFAULT_SEESTAR_MODEL, type SeestarModel } from './lib/seestarModel'
 import type { SortDirection, SortKey } from './lib/sortObjects'
@@ -63,13 +67,13 @@ export default function App() {
   }
 
   const [observingLocation, setObservingLocation] = useState<ObservingLocation | null>(() => {
-    const stored = localStorage.getItem('observingLocation')
+    const stored = localStorage.getItem(OBSERVING_LOCATION_STORAGE_KEY)
     return stored ? (JSON.parse(stored) as ObservingLocation) : null
   })
 
   function handleObservingLocationChange(location: ObservingLocation) {
     setObservingLocation(location)
-    localStorage.setItem('observingLocation', JSON.stringify(location))
+    localStorage.setItem(OBSERVING_LOCATION_STORAGE_KEY, JSON.stringify(location))
   }
 
   // Recomputed once per "night" (nightKey flips at local noon, not midnight — see
@@ -210,6 +214,32 @@ export default function App() {
   function handlePlanningSeestarModelChange(model: SeestarModel) {
     setPlanningSeestarModel(model)
     localStorage.setItem('planningSeestarModel', model)
+  }
+
+  // Object type labels (Galaxy, Nebula, …) are one colour by default; switching this on
+  // lets each type carry its own colour, chosen below.
+  const [objectTypeColorsEnabled, setObjectTypeColorsEnabled] = useState<boolean>(
+    () => localStorage.getItem('objectTypeColorsEnabled') === 'true',
+  )
+
+  function handleObjectTypeColorsEnabledChange(enabled: boolean) {
+    setObjectTypeColorsEnabled(enabled)
+    localStorage.setItem('objectTypeColorsEnabled', String(enabled))
+  }
+
+  const [objectTypeColors, setObjectTypeColors] = useState<Record<string, ObjectTypeColorKey>>(() => {
+    try {
+      const stored = localStorage.getItem('objectTypeColors')
+      return stored ? (JSON.parse(stored) as Record<string, ObjectTypeColorKey>) : {}
+    } catch {
+      return {}
+    }
+  })
+
+  function handleObjectTypeColorChange(type: string, color: ObjectTypeColorKey) {
+    const next = { ...objectTypeColors, [type]: color }
+    setObjectTypeColors(next)
+    localStorage.setItem('objectTypeColors', JSON.stringify(next))
   }
 
   const [frameFitRatingEnabled, setFrameFitRatingEnabled] = useState<boolean>(
@@ -425,6 +455,10 @@ export default function App() {
     : []
   const effectiveSelectedFrameTypes = selectedFrameTypes ?? new Set(allFrameTypeNames)
   const isPlanning = activeSection === 'planning'
+
+  // filteredGroups is rebuilt every render, so memoising on it would never hit.
+  const catalogueTotals = summarizeObjects(filteredGroups.flatMap((group) => group.objects))
+  const catalogueTotalsFiltered = effectiveSelectedCatalog !== null || nameFilter.trim() !== ''
   const effectiveSelectedMetrics = isPlanning
     ? new Set([...selectedMetrics].filter((m) => m !== 'size'))
     : selectedMetrics
@@ -543,6 +577,10 @@ export default function App() {
             onFrameFitMosaicThresholdPercentChange={handleFrameFitMosaicThresholdPercentChange}
             frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
             onFrameFitTooBigThresholdPercentChange={handleFrameFitTooBigThresholdPercentChange}
+            objectTypeColorsEnabled={objectTypeColorsEnabled}
+            onObjectTypeColorsEnabledChange={handleObjectTypeColorsEnabledChange}
+            objectTypeColors={objectTypeColors}
+            onObjectTypeColorChange={handleObjectTypeColorChange}
           />
         ) : (
         <>
@@ -577,7 +615,7 @@ export default function App() {
                 value={nameFilter}
                 onChange={(e) => setNameFilter(e.target.value)}
                 placeholder="Filter by name…"
-                className="w-full max-w-xs rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 placeholder:text-slate-500 focus:border-white/20 focus:outline-none"
+                className="w-full max-w-xs rounded-lg border border-white/10 bg-white/5 px-3 py-1.5 text-sm text-slate-200 placeholder:text-slate-400 focus:border-white/20 focus:outline-none"
               />
               <div className="flex items-center gap-3">
                 {isPlanning && (
@@ -606,12 +644,12 @@ export default function App() {
           )}
 
           {!catalogue?.rootPath ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-24 text-center text-slate-500">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-24 text-center text-slate-400">
               <p className="mb-1 text-base">No directory selected yet</p>
               <p className="text-sm">Select your astrophoto root directory to get started</p>
             </div>
           ) : catalogue.objects.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-24 text-center text-slate-500">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-24 text-center text-slate-400">
               <p className="mb-1 text-base">No objects catalogued yet</p>
               <p className="text-sm">Click Analyze to scan the selected directory</p>
             </div>
@@ -620,7 +658,7 @@ export default function App() {
               <section>
                 <h2 className="mb-4 text-xl font-bold text-slate-100">Already in catalogue</h2>
                 {filteredGroups.length === 0 ? (
-                  <p className="text-sm text-slate-500">No catalogued objects match your filter</p>
+                  <p className="text-sm text-slate-400">No catalogued objects match your filter</p>
                 ) : (
                   <ObjectGroupsGrid
                     groups={filteredGroups}
@@ -647,6 +685,9 @@ export default function App() {
                     frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
                     frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
                     imagesPath={objectImagesPath}
+                    objectTypeColorsEnabled={objectTypeColorsEnabled}
+                    objectTypeColors={objectTypeColors}
+                    collapseStorageKey="collapsedCatalogs.planningCatalogued"
                   />
                 )}
               </section>
@@ -669,13 +710,13 @@ export default function App() {
                   limit={proposalLimit}
                   onLimitChange={handleProposalLimitChange}
                 />
-                <p className="mb-4 text-xs text-slate-500">
+                <p className="mb-4 text-xs text-slate-400">
                   Catalog objects you haven't captured yet, matching the filters above.
                   {totalProposalMatches > shownProposalCount &&
                     ` Showing the first ${shownProposalCount} of ${totalProposalMatches} matches — narrow the filters or raise the limit to see more.`}
                 </p>
                 {cappedProposedGroups.length === 0 ? (
-                  <p className="text-sm text-slate-500">
+                  <p className="text-sm text-slate-400">
                     {observingLocation
                       ? 'No matching objects found outside your catalogue.'
                       : 'Set your observing location in Configuration to filter propositions by Moon distance or altitude.'}
@@ -706,16 +747,21 @@ export default function App() {
                     frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
                     frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
                     imagesPath={objectImagesPath}
+                    objectTypeColorsEnabled={objectTypeColorsEnabled}
+                    objectTypeColors={objectTypeColors}
+                    collapseStorageKey="collapsedCatalogs.planningProposals"
                   />
                 )}
               </section>
             </div>
           ) : filteredGroups.length === 0 ? (
-            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-24 text-center text-slate-500">
+            <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-white/10 py-24 text-center text-slate-400">
               <p className="mb-1 text-base">No objects match your filter</p>
               <p className="text-sm">Try a different search term</p>
             </div>
           ) : (
+            <>
+            <CatalogueSummary totals={catalogueTotals} filtered={catalogueTotalsFiltered} />
             <ObjectGroupsGrid
               groups={filteredGroups}
               viewMode={viewMode}
@@ -741,7 +787,11 @@ export default function App() {
               frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
               frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
               imagesPath={objectImagesPath}
+              objectTypeColorsEnabled={objectTypeColorsEnabled}
+              objectTypeColors={objectTypeColors}
+              collapseStorageKey="collapsedCatalogs.catalogue"
             />
+            </>
           )}
         </main>
         </>
@@ -762,6 +812,8 @@ export default function App() {
           frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
           frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
           imagesPath={objectImagesPath}
+          objectTypeColorsEnabled={objectTypeColorsEnabled}
+          objectTypeColors={objectTypeColors}
           onClose={() => setSelectedObject(null)}
         />
       )}

@@ -49,7 +49,7 @@ export function Header({
             <button
               onClick={onCheckSeestarConnection}
               title="Re-check Seestar connection"
-              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-slate-300 transition hover:bg-white/10"
+              className="flex items-center gap-1.5 rounded-full border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-slate-200 transition hover:bg-white/10"
             >
               <span className={`h-2 w-2 rounded-full ${SEESTAR_STATUS_DOT[seestarStatus]}`} />
               {SEESTAR_STATUS_LABEL[seestarStatus]}
@@ -71,9 +71,9 @@ export function Header({
               </button>
             )}
           </div>
-          <p className="mt-1 text-sm text-slate-400">
+          <p className="mt-1 text-sm text-slate-300">
             {rootPath ? (
-              <span className="font-mono text-slate-300">{rootPath}</span>
+              <span className="font-mono text-slate-200">{rootPath}</span>
             ) : (
               'No root directory selected'
             )}
@@ -97,7 +97,7 @@ export function Header({
               {scanning ? 'Analyzing…' : 'Analyze'}
             </button>
           </div>
-          <p className="text-xs text-slate-500">
+          <p className="text-xs text-slate-400">
             {scanning && scanProgressLabel ? scanProgressLabel : `Last scanned: ${formatTimestamp(lastScannedAt)}`}
           </p>
         </div>

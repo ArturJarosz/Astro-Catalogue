@@ -6,10 +6,12 @@ import { getFramePortionPercent } from '../lib/framePortion'
 import type { AltitudeListMetric, MoonListMetric, NightMoonTrackSample } from '../lib/moonSeparation'
 import { getObjectCoordinates } from '../lib/objectCoordinates'
 import type { SeestarModel } from '../lib/seestarModel'
+import { getFileTypes } from '../lib/objectStats'
 import { getObjectWarnings } from '../lib/warnings'
-import type { ObservingLocation } from './MoonPanel'
+import type { ObservingLocation } from '../lib/observingLocation'
 import { MoonSeparationCells } from './MoonSeparationCells'
 import { ObjectThumbnail } from './ObjectThumbnail'
+import { FileTypeChips } from './FileTypeChips'
 
 interface ObjectListTableProps {
   objects: ObjectInfo[]
@@ -77,7 +79,7 @@ export function ObjectListTable({
     <div className="overflow-x-auto rounded-lg border border-white/10">
       <table className="w-full border-collapse text-sm">
         <thead>
-          <tr className="border-b border-white/10 bg-white/5 text-xs uppercase tracking-wide text-slate-400">
+          <tr className="border-b border-white/10 bg-white/5 text-xs uppercase tracking-wide text-slate-300">
             {showThumbnails && <th className="w-10 px-3 py-2"></th>}
             <th className="px-3 py-2 text-left font-medium">Object</th>
             {isPlanning ? (
@@ -103,6 +105,7 @@ export function ObjectListTable({
             const grandTotalFrames = object.frameTypes.reduce((sum, ft) => sum + ft.totalFrames, 0)
             const grandTotalExposure = object.frameTypes.reduce((sum, ft) => sum + ft.totalExposureSeconds, 0)
             const grandTotalSize = object.frameTypes.reduce((sum, ft) => sum + ft.totalSizeBytes, 0)
+            const fileTypes = getFileTypes(object)
             const frameTypeByName = new Map(object.frameTypes.map((ft) => [ft.name, ft]))
             const coordinates = getObjectCoordinates(object.catalog, object.catalogNumber)
             const framePortionPercent = getFramePortionPercent(coordinates?.majorArcmin, coordinates?.minorArcmin, seestarModel)
@@ -134,10 +137,11 @@ export function ObjectListTable({
                   </td>
                 )}
                 <td className="px-3 py-2">
+                  <span className="flex min-w-0 flex-col gap-1">
                   <span className="flex min-w-0 items-center gap-1.5 font-semibold text-slate-100">
                     <span className="truncate">
                       {object.name}
-                      {object.isMosaic && <span className="text-slate-400"> (Mosaic)</span>}
+                      {object.isMosaic && <span className="text-slate-300"> (Mosaic)</span>}
                     </span>
                     {objectWarnings.length > 0 && (
                       <span
@@ -148,6 +152,8 @@ export function ObjectListTable({
                         <span className="font-medium tabular-nums">{objectWarnings.length}</span>
                       </span>
                     )}
+                  </span>
+                  {!isPlanning && <FileTypeChips fileTypes={fileTypes} extraOnly />}
                   </span>
                 </td>
                 {isPlanning ? (
@@ -165,7 +171,7 @@ export function ObjectListTable({
                       moonListMetric={moonListMetric}
                       altitudeListMetric={altitudeListMetric}
                     />
-                    <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-slate-300">
+                    <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-slate-200">
                       {formatAngularSize(coordinates?.majorArcmin, coordinates?.minorArcmin)}
                     </td>
                     <td className={`whitespace-nowrap px-3 py-2 text-right text-xs font-medium tabular-nums ${frameFitTextClassFor(frameFitRating)}`}>
@@ -178,9 +184,9 @@ export function ObjectListTable({
                     return (
                       <td
                         key={name}
-                        className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-slate-300"
+                        className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums text-slate-200"
                       >
-                        {ft ? formatMetrics(ft, visibleMetrics) : <span className="text-slate-600">–</span>}
+                        {ft ? formatMetrics(ft, visibleMetrics) : <span className="text-slate-400">–</span>}
                       </td>
                     )
                   })

@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
+import { useDismissable } from '../lib/useDismissable'
 
 interface MultiSelectDropdownProps<T extends string> {
   label: string
@@ -29,26 +30,17 @@ export function MultiSelectDropdown<T extends string>({
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => {
-    if (!open) return
-    function handleClick(e: MouseEvent) {
-      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
-        setOpen(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [open])
+  useDismissable(open, containerRef, () => setOpen(false))
 
   return (
     <div className="relative shrink-0" ref={containerRef}>
-      <p className="mb-1.5 text-[11px] uppercase tracking-wide text-slate-500">{label}</p>
+      <p className="mb-1.5 text-[11px] uppercase tracking-wide text-slate-400">{label}</p>
       <button
         onClick={() => setOpen((o) => !o)}
         className="flex w-40 items-center justify-between gap-2 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-left text-sm text-slate-200 transition hover:bg-white/10"
       >
         <span className="truncate">{summarize(selected.size, options.length)}</span>
-        <span className="shrink-0 text-slate-500">▾</span>
+        <span className="shrink-0 text-slate-400">▾</span>
       </button>
 
       {open && (

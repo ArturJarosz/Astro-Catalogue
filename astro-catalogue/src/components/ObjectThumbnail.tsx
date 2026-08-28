@@ -14,7 +14,7 @@ export function ObjectThumbnail({ object, imagesPath }: ObjectThumbnailProps) {
       {imageUrl ? (
         <img src={imageUrl} alt={object.name} className="h-full w-full object-cover" />
       ) : (
-        <span className="text-[10px] text-slate-600">—</span>
+        <span className="text-[10px] text-slate-400">—</span>
       )}
     </div>
   )

@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react'
 import type { ObjectInfo, WarningInfo } from '../../electron/shared-types'
 import { AltitudeChart } from './AltitudeChart'
-import type { ObservingLocation } from './MoonPanel'
+import type { ObservingLocation } from '../lib/observingLocation'
 import { formatAltitude, formatAngularSize, formatExposure, formatFramePortion, formatRa, formatSize } from '../lib/format'
 import { raDecToAltitude } from '../lib/astronomyMath'
 import { labelFor, rateFrameFit, textClassFor as frameFitTextClassFor } from '../lib/frameFitRating'
@@ -10,9 +10,11 @@ import { getMoonSeparationForObject, type NightMoonTrackSample } from '../lib/mo
 import { getObjectCoordinates } from '../lib/objectCoordinates'
 import { getObjectVisibility } from '../lib/objectVisibility'
 import { labelForObjectType } from '../lib/objectType'
+import { objectTypeBadgeClasses, type ObjectTypeColorKey } from '../lib/objectTypeColor'
 import type { SeestarModel } from '../lib/seestarModel'
 import { useObjectImage } from '../lib/useObjectImage'
 import { getObjectWarnings } from '../lib/warnings'
+import { FileTypeChips } from './FileTypeChips'
 
 interface ObjectDetailModalProps {
   object: ObjectInfo
@@ -25,6 +27,8 @@ interface ObjectDetailModalProps {
   frameFitMosaicThresholdPercent: number
   frameFitTooBigThresholdPercent: number
   imagesPath: string
+  objectTypeColorsEnabled: boolean
+  objectTypeColors: Record<string, ObjectTypeColorKey>
   onClose: () => void
 }
 
@@ -44,6 +48,8 @@ export function ObjectDetailModal({
   frameFitMosaicThresholdPercent,
   frameFitTooBigThresholdPercent,
   imagesPath,
+  objectTypeColorsEnabled,
+  objectTypeColors,
   onClose,
 }: ObjectDetailModalProps) {
   const { imageUrl, summary, loading: loadingSummary } = useObjectImage(object, imagesPath, true)
@@ -127,11 +133,17 @@ export function ObjectDetailModal({
                 Mosaic
               </span>
             )}
-            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-slate-400">
+            <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5 text-[10px] font-medium text-slate-300">
               {object.catalog}
             </span>
             {objectTypeLabel && (
-              <span className="rounded-full border border-emerald-400/30 bg-emerald-400/10 px-2 py-0.5 text-[10px] font-medium text-emerald-300">
+              <span
+                className={`rounded-full border px-2 py-0.5 text-[10px] font-medium ${objectTypeBadgeClasses(
+                  coordinates?.type,
+                  objectTypeColorsEnabled,
+                  objectTypeColors,
+                )}`}
+              >
                 {objectTypeLabel}
               </span>
             )}
@@ -148,7 +160,7 @@ export function ObjectDetailModal({
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1 text-slate-400 transition hover:bg-white/10 hover:text-slate-200"
+            className="rounded-md p-1 text-slate-300 transition hover:bg-white/10 hover:text-slate-200"
           >
             ✕
           </button>
@@ -158,19 +170,19 @@ export function ObjectDetailModal({
           <div className="flex w-full shrink-0 flex-col gap-3 sm:w-96">
             <div className="flex aspect-square items-center justify-center overflow-hidden rounded-lg border border-white/10 bg-black/30">
               {loadingSummary ? (
-                <span className="text-xs text-slate-600">Loading…</span>
+                <span className="text-xs text-slate-400">Loading…</span>
               ) : imageUrl ? (
                 <img src={imageUrl} alt={object.name} className="h-full w-full object-cover" />
               ) : (
-                <span className="px-3 text-center text-xs text-slate-600">No image available</span>
+                <span className="px-3 text-center text-xs text-slate-400">No image available</span>
               )}
             </div>
 
             {!loadingSummary && summary?.description && (
-              <p className="text-sm font-medium text-slate-300">{summary.description}</p>
+              <p className="text-sm font-medium text-slate-200">{summary.description}</p>
             )}
             {!loadingSummary && summary?.extract && (
-              <p className="text-xs leading-relaxed text-slate-500">{summary.extract}</p>
+              <p className="text-xs leading-relaxed text-slate-400">{summary.extract}</p>
             )}
             {!loadingSummary && summary?.pageUrl && (
               <button
@@ -180,79 +192,81 @@ export function ObjectDetailModal({
                 View on Wikipedia →
               </button>
             )}
-            {!loadingSummary && !summary && <p className="text-xs text-slate-600">No classification data found.</p>}
+            {!loadingSummary && !summary && <p className="text-xs text-slate-400">No classification data found.</p>}
           </div>
 
           <div className="min-w-0 flex-1 space-y-5">
             <div>
               <h3 className="mb-2 text-sm font-semibold text-slate-200">Visibility Today</h3>
               {!observingLocation ? (
-                <p className="text-xs text-slate-500">
+                <p className="text-xs text-slate-400">
                   Set your observing location in the Configuration tab to see when this object is up.
                 </p>
               ) : !coordinates ? (
-                <p className="text-xs text-slate-500">No coordinate data available for this object.</p>
+                <p className="text-xs text-slate-400">No coordinate data available for this object.</p>
               ) : (
                 visibility && (
                   <div className="space-y-3">
-                    <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-xs tabular-nums text-slate-300">
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-xs tabular-nums text-slate-200">
                       <span>
-                        <span className="text-slate-500">RA </span>
+                        <span className="text-slate-400">RA </span>
                         {formatRa(coordinates.raDeg)}
                       </span>
                       <span>
-                        <span className="text-slate-500">Alt </span>
+                        <span className="text-slate-400">Alt </span>
                         {currentAltitudeDeg !== null ? formatAltitude(currentAltitudeDeg) : '—'}
                       </span>
                       <span>
-                        <span className="text-slate-500">Size </span>
+                        <span className="text-slate-400">Rises </span>
+                        {visibility.alwaysUp ? 'always up' : visibility.alwaysDown ? 'never' : formatTime(visibility.rise)}
+                      </span>
+                      <span>
+                        <span className="text-slate-400">Peak </span>
+                        {Math.round(visibility.transitAltitudeDeg)}° at {formatTime(visibility.transitTime)}
+                      </span>
+                      <span>
+                        <span className="text-slate-400">Sets </span>
+                        {visibility.alwaysUp ? 'never' : visibility.alwaysDown ? 'always down' : formatTime(visibility.set)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-xs tabular-nums text-slate-200">
+                      <span>
+                        <span className="text-slate-400">Size </span>
                         {formatAngularSize(coordinates.majorArcmin, coordinates.minorArcmin)}
                       </span>
                       <span>
-                        <span className="text-slate-500">Frame </span>
+                        <span className="text-slate-400">Frame </span>
                         <span className={frameFitRating ? `font-medium ${frameFitTextClassFor(frameFitRating)}` : undefined}>
                           {formatFramePortion(framePortionPercent)}
                           {frameFitRating && ` (${labelFor(frameFitRating)})`}
                         </span>
                       </span>
-                      <span>
-                        <span className="text-slate-500">Rises </span>
-                        {visibility.alwaysUp ? 'always up' : visibility.alwaysDown ? 'never' : formatTime(visibility.rise)}
-                      </span>
-                      <span>
-                        <span className="text-slate-500">Peak </span>
-                        {Math.round(visibility.transitAltitudeDeg)}° at {formatTime(visibility.transitTime)}
-                      </span>
-                      <span>
-                        <span className="text-slate-500">Sets </span>
-                        {visibility.alwaysUp ? 'never' : visibility.alwaysDown ? 'always down' : formatTime(visibility.set)}
-                      </span>
                     </div>
-                    <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-xs tabular-nums text-slate-300">
+                    <div className="flex flex-wrap gap-x-5 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-xs tabular-nums text-slate-200">
                       <span>
-                        <span className="text-slate-500">Moon now </span>
+                        <span className="text-slate-400">Moon now </span>
                         {nightSeparation ? `${Math.round(nightSeparation.currentSeparationDeg)}°` : '—'}
                       </span>
                       <span>
-                        <span className="text-slate-500">Closest </span>
+                        <span className="text-slate-400">Closest </span>
                         {nightSeparation
                           ? `${Math.round(nightSeparation.minSeparationDeg)}° at ${formatTime(nightSeparation.minSeparationTime)}`
                           : '—'}
                       </span>
                       <span>
-                        <span className="text-slate-500">Farthest </span>
+                        <span className="text-slate-400">Farthest </span>
                         {nightSeparation
                           ? `${Math.round(nightSeparation.maxSeparationDeg)}° at ${formatTime(nightSeparation.maxSeparationTime)}`
                           : '—'}
                       </span>
                       <span>
-                        <span className="text-slate-500">Average </span>
+                        <span className="text-slate-400">Average </span>
                         {nightSeparation ? `${Math.round(nightSeparation.avgSeparationDeg)}°` : '—'}
                       </span>
                     </div>
                     <div className="rounded-md bg-black/20 p-3">
                       <AltitudeChart visibility={visibility} windowStart={visibilityWindowStart} />
-                      <p className="mt-1 text-[10px] text-slate-600">
+                      <p className="mt-1 text-[10px] text-slate-400">
                         Shaded regions are night (Sun below horizon).{' '}
                         {!nightSeparation && 'Not above the horizon tonight. '}
                         Approximate, computed locally — no network required.
@@ -264,31 +278,37 @@ export function ObjectDetailModal({
             </div>
 
             {object.frameTypes.length === 0 ? (
-              <p className="text-sm text-slate-500">No frame-type folders found</p>
+              <p className="text-sm text-slate-400">No frame-type folders found</p>
             ) : (
               object.frameTypes.map((ft) => (
                 <div key={ft.name}>
                   <div className="mb-2 flex items-baseline justify-between">
                     <h3 className="text-sm font-semibold text-slate-200">{ft.name}</h3>
-                    <span className="text-xs tabular-nums text-slate-500">
-                      {ft.totalFrames} frames &middot; {formatExposure(ft.totalExposureSeconds)} &middot;{' '}
-                      {formatSize(ft.totalSizeBytes)}
+                    <span className="flex items-baseline gap-2 text-xs tabular-nums text-slate-400">
+                      <FileTypeChips fileTypes={ft.fileTypes} />
+                      <span>
+                        {ft.totalFrames} frames &middot; {formatExposure(ft.totalExposureSeconds)} &middot;{' '}
+                        {formatSize(ft.totalSizeBytes)}
+                      </span>
                     </span>
                   </div>
                   <div className="grid grid-cols-[1fr_auto_auto_auto] gap-x-4 gap-y-1 rounded-md bg-black/20 px-3 py-2 text-xs tabular-nums">
-                    <span className="text-[10px] font-medium uppercase tracking-wide text-slate-600">Date</span>
-                    <span className="text-right text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                    <span className="text-[10px] font-medium uppercase tracking-wide text-slate-400">Date</span>
+                    <span className="text-right text-[10px] font-medium uppercase tracking-wide text-slate-400">
                       Frames
                     </span>
-                    <span className="text-right text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                    <span className="text-right text-[10px] font-medium uppercase tracking-wide text-slate-400">
                       Exposure
                     </span>
-                    <span className="text-right text-[10px] font-medium uppercase tracking-wide text-slate-600">
+                    <span className="text-right text-[10px] font-medium uppercase tracking-wide text-slate-400">
                       Size
                     </span>
                     {ft.sessions.map((session) => (
                       <div className="contents" key={session.folderPath}>
-                        <span className="text-slate-300">{session.date}</span>
+                        <span className="flex flex-col gap-0.5 text-slate-200">
+                          {session.date}
+                          <FileTypeChips fileTypes={session.fileTypes} />
+                        </span>
                         <span className="text-right text-slate-200">{session.frameCount}</span>
                         <span className="text-right text-slate-200">
                           {formatExposure(session.frameCount * session.captureSeconds)}
@@ -311,7 +331,7 @@ export function ObjectDetailModal({
                   {objectWarnings.map((w, i) => (
                     <li key={i} className="font-mono">
                       <span className="text-amber-400">{w.path}</span>
-                      <span className="text-amber-200/70"> — {w.message}</span>
+                      <span className="text-amber-200/90"> — {w.message}</span>
                     </li>
                   ))}
                 </ul>

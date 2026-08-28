@@ -30,7 +30,7 @@ function ViewToggleButton({ label, active, onClick }: ViewToggleButtonProps) {
     <button
       onClick={onClick}
       className={`rounded-md px-3 py-1 font-medium transition ${
-        active ? 'bg-white/10 text-slate-100' : 'text-slate-400 hover:text-slate-200'
+        active ? 'bg-white/10 text-slate-100' : 'text-slate-300 hover:text-slate-200'
       }`}
     >
       {label}

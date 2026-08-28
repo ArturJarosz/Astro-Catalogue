@@ -19,14 +19,14 @@ export function WarningsPanel({ warnings }: WarningsPanelProps) {
         <span>
           {warnings.length} warning{warnings.length === 1 ? '' : 's'} found during last scan
         </span>
-        <span className="text-amber-400/70">{open ? '−' : '+'}</span>
+        <span className="text-amber-400/90">{open ? '−' : '+'}</span>
       </button>
       {open && (
         <ul className="space-y-1.5 border-t border-amber-400/10 px-4 py-3 text-xs text-amber-200/90">
           {warnings.map((w, i) => (
             <li key={i} className="font-mono">
               <span className="text-amber-400">{w.path}</span>
-              <span className="text-amber-200/70"> — {w.message}</span>
+              <span className="text-amber-200/90"> — {w.message}</span>
             </li>
           ))}
         </ul>

@@ -203,7 +203,7 @@ export function SeestarView({
             {status === 'checking' ? 'Checking for Seestar…' : 'Seestar not connected'}
           </span>
         </div>
-        <p className="mb-4 text-sm text-slate-500">
+        <p className="mb-4 text-sm text-slate-400">
           {status === 'disconnected'
             ? `Couldn't reach ${sourceDirectory} on the network`
             : `Looking for ${sourceDirectory}`}
@@ -223,17 +223,17 @@ export function SeestarView({
   return (
     <div className="space-y-6">
       <WarningsPanel warnings={warnings} />
-      <div className="flex items-center gap-2 text-sm text-slate-300">
+      <div className="flex items-center gap-2 text-sm text-slate-200">
         <span className="h-2.5 w-2.5 rounded-full bg-emerald-400" />
         Seestar connected
-        <button onClick={onCheckConnection} className="ml-2 text-xs text-slate-500 underline hover:text-slate-300">
+        <button onClick={onCheckConnection} className="ml-2 text-xs text-slate-400 underline hover:text-slate-200">
           re-check
         </button>
       </div>
 
       <section className="rounded-xl border border-white/10 p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Source directories</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">Source directories</h2>
           <button
             onClick={loadDirectories}
             disabled={dirsLoading}
@@ -246,14 +246,14 @@ export function SeestarView({
         {dirsError && <p className="text-sm text-red-300">{dirsError}</p>}
 
         {directories && directories.length === 0 && (
-          <p className="text-sm text-slate-500">No directories found in the Seestar source folder.</p>
+          <p className="text-sm text-slate-400">No directories found in the Seestar source folder.</p>
         )}
 
         {directories && directories.length > 0 && (
           <div className="max-h-80 overflow-y-auto">
             <table className="w-full text-left text-sm">
               <thead>
-                <tr className="text-xs uppercase tracking-wide text-slate-500">
+                <tr className="text-xs uppercase tracking-wide text-slate-400">
                   <th className="w-8 py-1"></th>
                   <th className="py-1">Directory</th>
                   <th className="py-1 text-right">Files</th>
@@ -278,11 +278,11 @@ export function SeestarView({
                     </td>
                     <td className="py-1.5 text-slate-200">
                       {dir.name}
-                      {!dir.isSub && <span className="ml-2 text-xs text-slate-600">(not a _sub folder)</span>}
+                      {!dir.isSub && <span className="ml-2 text-xs text-slate-400">(not a _sub folder)</span>}
                     </td>
-                    <td className="py-1.5 text-right tabular-nums text-slate-400">{dir.totalFiles}</td>
+                    <td className="py-1.5 text-right tabular-nums text-slate-300">{dir.totalFiles}</td>
                     {extensionColumns.map((ext) => (
-                      <td key={ext} className="py-1.5 text-right tabular-nums text-slate-400">
+                      <td key={ext} className="py-1.5 text-right tabular-nums text-slate-300">
                         {dir.extensionCounts[ext] ?? 0}
                       </td>
                     ))}
@@ -296,16 +296,16 @@ export function SeestarView({
 
       <section className="rounded-xl border border-white/10 p-4">
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">File types to import</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">File types to import</h2>
           {availableExtensions.length > 0 && (
-            <div className="flex items-center gap-3 text-xs text-slate-500">
+            <div className="flex items-center gap-3 text-xs text-slate-400">
               <button
                 onClick={() => setSelectedExtensions(new Set(availableExtensions.map(([ext]) => ext)))}
-                className="underline hover:text-slate-300"
+                className="underline hover:text-slate-200"
               >
                 select all
               </button>
-              <button onClick={() => setSelectedExtensions(new Set())} className="underline hover:text-slate-300">
+              <button onClick={() => setSelectedExtensions(new Set())} className="underline hover:text-slate-200">
                 select none
               </button>
             </div>
@@ -313,20 +313,20 @@ export function SeestarView({
         </div>
 
         {availableExtensions.length === 0 ? (
-          <p className="text-sm text-slate-500">
+          <p className="text-sm text-slate-400">
             {selectedSubDirs.size === 0 ? 'Select a source directory first.' : 'No files found in the selected directories.'}
           </p>
         ) : (
           <div className="flex flex-wrap gap-x-6 gap-y-2">
             {availableExtensions.map(([extension, count]) => (
-              <label key={extension} className="flex items-center gap-2 text-sm text-slate-300">
+              <label key={extension} className="flex items-center gap-2 text-sm text-slate-200">
                 <input
                   type="checkbox"
                   checked={selectedExtensions.has(extension)}
                   onChange={() => toggleExtension(extension)}
                 />
                 <span className="font-mono">.{extension}</span>
-                <span className="text-xs text-slate-500">({count})</span>
+                <span className="text-xs text-slate-400">({count})</span>
               </label>
             ))}
           </div>
@@ -334,9 +334,9 @@ export function SeestarView({
       </section>
 
       <section className="rounded-xl border border-white/10 p-4">
-        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Target directory</h2>
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-300">Target directory</h2>
         <div className="flex items-center gap-3">
-          <span className="min-w-0 flex-1 truncate font-mono text-sm text-slate-300">
+          <span className="min-w-0 flex-1 truncate font-mono text-sm text-slate-200">
             {targetDirectory ?? 'No target directory selected'}
           </span>
           <button
@@ -361,14 +361,14 @@ export function SeestarView({
 
       {plan && (
         <section className="space-y-4 rounded-xl border border-white/10 p-4">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">Sub directory summary</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-300">Sub directory summary</h2>
           {plan.subDirSummaries.map((summary) => (
             <div key={summary.name}>
               <p className="text-sm text-slate-200">{summary.name}</p>
               {summary.groups.length === 0 ? (
-                <p className="pl-3 text-xs text-slate-500">No matching files.</p>
+                <p className="pl-3 text-xs text-slate-400">No matching files.</p>
               ) : (
-                <ul className="pl-3 text-xs text-slate-500">
+                <ul className="pl-3 text-xs text-slate-400">
                   {summary.groups.map((g) => (
                     <li key={`${g.targetDate}-${g.type}-${g.targetExposure}-${g.extension}`}>
                       {g.targetDate} {g.type} {g.targetExposure}: {g.count} {g.extension} files
@@ -384,7 +384,7 @@ export function SeestarView({
               <p className="text-sm text-amber-300">
                 {plan.invalidFiles.length} file(s) skipped — name doesn't match the expected pattern
               </p>
-              <ul className="max-h-32 overflow-y-auto pl-3 text-xs text-slate-500">
+              <ul className="max-h-32 overflow-y-auto pl-3 text-xs text-slate-400">
                 {plan.invalidFiles.map((f) => (
                   <li key={`${f.subDirectory}/${f.fileName}`}>
                     [{f.subDirectory}] {f.fileName}
@@ -395,13 +395,13 @@ export function SeestarView({
           )}
 
           <div className="border-t border-white/10 pt-4">
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-300">
               Copy plan ({importExtensions.map((ext) => `.${ext}`).join(', ')})
             </h3>
             {destinationGroups.length === 0 ? (
-              <p className="text-sm text-slate-500">No new files to copy.</p>
+              <p className="text-sm text-slate-400">No new files to copy.</p>
             ) : (
-              <ul className="text-xs text-slate-400">
+              <ul className="text-xs text-slate-300">
                 {destinationGroups.map((g) => (
                   <li key={g.destinationDirectory}>
                     {g.count} file(s) → {g.destinationDirectory}
@@ -410,12 +410,12 @@ export function SeestarView({
               </ul>
             )}
             {existingCount > 0 && !overwrite && (
-              <p className="mt-2 text-xs text-slate-500">
+              <p className="mt-2 text-xs text-slate-400">
                 {existingCount} file(s) already exist in the target and will be skipped.
               </p>
             )}
 
-            <label className="mt-3 flex items-center gap-2 text-sm text-slate-300">
+            <label className="mt-3 flex items-center gap-2 text-sm text-slate-200">
               <input type="checkbox" checked={overwrite} onChange={(e) => setOverwrite(e.target.checked)} />
               Overwrite existing files
             </label>
@@ -438,7 +438,7 @@ export function SeestarView({
                     }}
                   />
                 </div>
-                <p className="mt-1 text-xs text-slate-500">
+                <p className="mt-1 text-xs text-slate-400">
                   {copyProgress
                     ? `${copyProgress.copied} / ${copyProgress.total} — ${copyProgress.fileName}`
                     : 'Starting…'}

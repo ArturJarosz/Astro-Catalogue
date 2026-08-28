@@ -44,6 +44,7 @@ const api: AstroCatalogueApi = {
     ipcRenderer.on('seestar-copy-progress', listener)
     return () => ipcRenderer.removeListener('seestar-copy-progress', listener)
   },
+  getCurrentLocation: () => ipcRenderer.invoke('get-current-location'),
 }
 
 contextBridge.exposeInMainWorld('astroCatalogue', api)

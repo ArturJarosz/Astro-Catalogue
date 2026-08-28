@@ -8,7 +8,7 @@ import deepSkyCoordinates from './data/deepSkyCoordinates.json'
 import { getFramePortionPercent } from './framePortion'
 import { getMoonSeparationForObject, type NightMoonTrackSample } from './moonSeparation'
 import { type CelestialCoordinates, formatCatalogObjectName } from './objectCoordinates'
-import type { ObservingLocation } from '../components/MoonPanel'
+import type { ObservingLocation } from './observingLocation'
 import type { SeestarModel } from './seestarModel'
 
 const coordinatesByKey = deepSkyCoordinates as Record<string, CelestialCoordinates>

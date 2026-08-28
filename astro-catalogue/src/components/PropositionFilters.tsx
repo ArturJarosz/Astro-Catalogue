@@ -71,7 +71,7 @@ export function PropositionFilters({
           optionLabel={(type) => labelForObjectType(type) ?? type}
         />
 
-        <label className="flex flex-col gap-1 text-xs text-slate-400">
+        <label className="flex flex-col gap-1 text-xs text-slate-300">
           Min frame portion (%)
           <input
             type="number"
@@ -80,10 +80,10 @@ export function PropositionFilters({
             value={minFramePortionPercent ?? ''}
             onChange={(e) => parseOptionalNumberInput(e.target.value, onMinFramePortionPercentChange)}
             placeholder="No limit"
-            className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-white/20 focus:outline-none"
+            className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-400 focus:border-white/20 focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-slate-400">
+        <label className="flex flex-col gap-1 text-xs text-slate-300">
           Max frame portion (%)
           <input
             type="number"
@@ -92,10 +92,10 @@ export function PropositionFilters({
             value={maxFramePortionPercent ?? ''}
             onChange={(e) => parseOptionalNumberInput(e.target.value, onMaxFramePortionPercentChange)}
             placeholder="No limit"
-            className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-white/20 focus:outline-none"
+            className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-400 focus:border-white/20 focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-slate-400">
+        <label className="flex flex-col gap-1 text-xs text-slate-300">
           Min Moon distance (°)
           <input
             type="number"
@@ -105,10 +105,10 @@ export function PropositionFilters({
             value={minMoonSeparationDeg ?? ''}
             onChange={(e) => parseOptionalNumberInput(e.target.value, onMinMoonSeparationDegChange)}
             placeholder="No limit"
-            className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-white/20 focus:outline-none"
+            className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-400 focus:border-white/20 focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-slate-400">
+        <label className="flex flex-col gap-1 text-xs text-slate-300">
           Min average height (°)
           <input
             type="number"
@@ -118,10 +118,10 @@ export function PropositionFilters({
             value={minAverageAltitudeDeg ?? ''}
             onChange={(e) => parseOptionalNumberInput(e.target.value, onMinAverageAltitudeDegChange)}
             placeholder="No limit"
-            className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-600 focus:border-white/20 focus:outline-none"
+            className="w-28 rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-slate-200 placeholder:text-slate-400 focus:border-white/20 focus:outline-none"
           />
         </label>
-        <label className="flex flex-col gap-1 text-xs text-slate-400">
+        <label className="flex flex-col gap-1 text-xs text-slate-300">
           Show up to
           <select
             value={limit}
@@ -136,7 +136,7 @@ export function PropositionFilters({
           </select>
         </label>
       </div>
-      <p className="mt-2 text-[11px] text-slate-600">
+      <p className="mt-2 text-[11px] text-slate-400">
         Every filter is optional — leave it unset and it won't narrow the results. Moon distance is the closest the
         Moon comes tonight; average height is averaged across the time the object is up tonight — both require an
         observing location, set in Configuration.

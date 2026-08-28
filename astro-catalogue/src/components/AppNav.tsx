@@ -22,7 +22,7 @@ export function AppNav({ active, onSelect }: AppNavProps) {
           className={`flex w-full items-center rounded-lg px-3 py-2 text-left text-sm font-medium transition ${
             active === section.id
               ? 'bg-white/10 text-slate-100'
-              : 'text-slate-400 hover:bg-white/5 hover:text-slate-200'
+              : 'text-slate-300 hover:bg-white/5 hover:text-slate-200'
           }`}
         >
           {section.label}

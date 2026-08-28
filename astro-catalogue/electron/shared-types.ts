@@ -1,9 +1,19 @@
+/** How many files of one format (lower-case extension, no dot) a folder holds, and their size. */
+export interface FileTypeInfo {
+  extension: string
+  count: number
+  sizeBytes: number
+}
+
 export interface SessionInfo {
   date: string
   captureSeconds: number
+  /** Only frame files (see FRAME_EXTENSIONS) — previews and other formats are excluded. */
   frameCount: number
   folderPath: string
+  /** Every file in the folder, whatever its format. */
   sizeBytes: number
+  fileTypes: FileTypeInfo[]
 }
 
 export interface FrameTypeInfo {
@@ -12,6 +22,7 @@ export interface FrameTypeInfo {
   totalFrames: number
   totalExposureSeconds: number
   totalSizeBytes: number
+  fileTypes: FileTypeInfo[]
 }
 
 export interface ObjectInfo {
@@ -111,6 +122,10 @@ export interface SeestarCopyResult {
   copiedCount: number
 }
 
+export type CurrentLocationResult =
+  | { ok: true; latitude: number; longitude: number; label: string | null }
+  | { ok: false; error: string }
+
 export interface AstroCatalogueApi {
   selectRootDir: () => Promise<string | null>
   analyzeDirectory: (root: string, directoryPattern: string) => Promise<CatalogueData>
@@ -132,4 +147,5 @@ export interface AstroCatalogueApi {
   ) => Promise<SeestarCopyPlan>
   executeSeestarCopy: (items: SeestarCopyItem[], overwrite: boolean) => Promise<SeestarCopyResult>
   onSeestarCopyProgress: (callback: (progress: SeestarCopyProgress) => void) => () => void
+  getCurrentLocation: () => Promise<CurrentLocationResult>
 }

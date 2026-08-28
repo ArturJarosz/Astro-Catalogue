@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url'
 import { initDb, getLastRoot, saveCatalogue, loadCatalogue } from './db'
 import { scanRoot } from './scanner'
 import { buildCopyPlan, executeCopy, listSourceDirectories, SEESTAR_SOURCE_DIR } from './seestar'
-import type { ObjectSummary, SeestarCopyItem } from './shared-types'
+import type { CurrentLocationResult, ObjectSummary, SeestarCopyItem } from './shared-types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -225,6 +225,60 @@ ipcMain.handle(
     return result
   },
 )
+
+/**
+ * Electron's prebuilt binaries ship without a Google API key, so Chromium's
+ * navigator.geolocation always fails in the renderer. We resolve the location
+ * from the main process via IP lookup instead.
+ */
+const IP_LOCATION_PROVIDERS = [
+  {
+    url: 'http://ip-api.com/json/',
+    parse: (data: Record<string, unknown>) => ({
+      latitude: data.lat,
+      longitude: data.lon,
+      label: [data.city, data.country].filter(Boolean).join(', ') || null,
+    }),
+  },
+  // Fallback only: ipapi.co aggressively rate-limits anonymous requests (HTTP 429).
+  {
+    url: 'https://ipapi.co/json/',
+    parse: (data: Record<string, unknown>) => ({
+      latitude: data.latitude,
+      longitude: data.longitude,
+      label: [data.city, data.country_name].filter(Boolean).join(', ') || null,
+    }),
+  },
+]
+
+ipcMain.handle('get-current-location', async (): Promise<CurrentLocationResult> => {
+  let lastError = 'Could not determine your location.'
+  for (const provider of IP_LOCATION_PROVIDERS) {
+    try {
+      const res = await fetch(provider.url, { headers: { 'User-Agent': WIKI_USER_AGENT } })
+      if (!res.ok) {
+        lastError = `Location lookup failed (HTTP ${res.status}).`
+        continue
+      }
+      const parsed = provider.parse((await res.json()) as Record<string, unknown>)
+      const latitude = Number(parsed.latitude)
+      const longitude = Number(parsed.longitude)
+      if (!Number.isFinite(latitude) || !Number.isFinite(longitude)) {
+        lastError = 'Location lookup returned no coordinates.'
+        continue
+      }
+      return {
+        ok: true,
+        latitude: Number(latitude.toFixed(4)),
+        longitude: Number(longitude.toFixed(4)),
+        label: (parsed.label as string | null) ?? null,
+      }
+    } catch {
+      lastError = 'Location lookup failed. Check your internet connection.'
+    }
+  }
+  return { ok: false, error: lastError }
+})
 
 ipcMain.handle('open-external', async (_event, url: string) => {
   await shell.openExternal(url)

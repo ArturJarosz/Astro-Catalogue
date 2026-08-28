@@ -1,4 +1,5 @@
-import type { ObjectInfo } from '../../electron/shared-types'
+import { mergeFileTypes } from '../../electron/file-types'
+import type { FileTypeInfo, ObjectInfo } from '../../electron/shared-types'
 
 export function getTotalFrames(object: ObjectInfo): number {
   return object.frameTypes.reduce((sum, ft) => sum + ft.totalFrames, 0)
@@ -10,6 +11,10 @@ export function getTotalExposureSeconds(object: ObjectInfo): number {
 
 export function getTotalSizeBytes(object: ObjectInfo): number {
   return object.frameTypes.reduce((sum, ft) => sum + ft.totalSizeBytes, 0)
+}
+
+export function getFileTypes(object: ObjectInfo): FileTypeInfo[] {
+  return mergeFileTypes(object.frameTypes.map((ft) => ft.fileTypes))
 }
 
 export function getLastSessionDate(object: ObjectInfo): string | null {

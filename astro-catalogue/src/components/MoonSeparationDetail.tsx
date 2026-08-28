@@ -3,7 +3,7 @@ import type { ObjectInfo } from '../../electron/shared-types'
 import { formatTime, panelClassFor, rate, textClassFor } from '../lib/moonRating'
 import { getMoonSeparationForObject, type NightMoonTrackSample } from '../lib/moonSeparation'
 import { getObjectCoordinates } from '../lib/objectCoordinates'
-import type { ObservingLocation } from './MoonPanel'
+import type { ObservingLocation } from '../lib/observingLocation'
 
 interface MoonSeparationDetailProps {
   object: ObjectInfo
@@ -59,13 +59,13 @@ export function MoonSeparationDetail({
   }, [observingLocation, nightMoonTrack, coordinates])
 
   if (!observingLocation) {
-    return <p className="text-xs text-slate-500">Set an observing location in Configuration → Planning.</p>
+    return <p className="text-xs text-slate-400">Set an observing location in Configuration → General.</p>
   }
   if (!coordinates) {
-    return <p className="text-xs text-slate-500">No coordinate data available for this object.</p>
+    return <p className="text-xs text-slate-400">No coordinate data available for this object.</p>
   }
   if (!result) {
-    return <p className="text-xs text-slate-500">Not above the horizon tonight.</p>
+    return <p className="text-xs text-slate-400">Not above the horizon tonight.</p>
   }
 
   // Moon rating: closer is worse, so it's driven by the closest (minimum) approach.
@@ -76,33 +76,33 @@ export function MoonSeparationDetail({
   return (
     <div className="space-y-1.5">
       <div className={`rounded-md px-2 py-1.5 text-xs ${panelClassFor(moonRating)}`}>
-        <div className="flex items-center gap-1.5 text-slate-300">
+        <div className="flex items-center gap-1.5 text-slate-200">
           <span>🌙</span>
           <span className="tabular-nums">
             Now <span className="font-semibold text-slate-100">{Math.round(result.currentSeparationDeg)}°</span>
           </span>
         </div>
-        <div className="mt-0.5 space-y-0.5 tabular-nums text-slate-500">
+        <div className="mt-0.5 space-y-0.5 tabular-nums text-slate-400">
           <div>
             Closest{' '}
             <span className={`font-medium ${textClassFor(moonRating)}`}>{Math.round(result.minSeparationDeg)}°</span> at{' '}
             {formatTime(result.minSeparationTime)}
           </div>
           <div>
-            Farthest <span className="font-medium text-slate-300">{Math.round(result.maxSeparationDeg)}°</span> at{' '}
+            Farthest <span className="font-medium text-slate-200">{Math.round(result.maxSeparationDeg)}°</span> at{' '}
             {formatTime(result.maxSeparationTime)}
           </div>
           <div>Average {Math.round(result.avgSeparationDeg)}° while up tonight</div>
         </div>
       </div>
       <div className={`rounded-md px-2 py-1.5 text-xs ${panelClassFor(altitudeRating)}`}>
-        <div className="flex items-center gap-1.5 text-slate-300">
+        <div className="flex items-center gap-1.5 text-slate-200">
           <span>⬆</span>
           <span className="tabular-nums">
             Max height <span className="font-semibold text-slate-100">{Math.round(result.maxAltitudeDeg)}°</span>
           </span>
         </div>
-        <div className="mt-0.5 tabular-nums text-slate-500">
+        <div className="mt-0.5 tabular-nums text-slate-400">
           Averages <span className={`font-medium ${textClassFor(altitudeRating)}`}>{Math.round(result.avgAltitudeDeg)}°</span> while up
           tonight
         </div>

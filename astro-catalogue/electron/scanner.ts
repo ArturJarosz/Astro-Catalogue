@@ -2,18 +2,18 @@ import fs from 'node:fs'
 import path from 'node:path'
 import { resolveCatalog } from './catalog'
 import { parseDirectoryPattern, type DirectoryPatternSegment, type PatternToken } from './directory-pattern'
-import type { FrameTypeInfo, ObjectInfo, SessionInfo, WarningInfo } from './shared-types'
+import { isFrameExtension, mergeFileTypes } from './file-types'
+import type { FileTypeInfo, FrameTypeInfo, ObjectInfo, SessionInfo, WarningInfo } from './shared-types'
 
 const MOSAIC_SUFFIX = '_mosaic'
-const FIT_EXTENSIONS = new Set(['.fit', '.fits'])
 const REQUIRED_TOKENS: PatternToken[] = ['object', 'type', 'date', 'exposure']
 
 function listDirEntries(dirPath: string): fs.Dirent[] {
   return fs.readdirSync(dirPath, { withFileTypes: true }).filter((entry) => !entry.name.startsWith('.'))
 }
 
-function isFitFile(fileName: string): boolean {
-  return FIT_EXTENSIONS.has(path.extname(fileName).toLowerCase())
+function fileExtension(fileName: string): string {
+  return path.extname(fileName).replace(/^\./, '').toLowerCase()
 }
 
 interface LeafRecord {
@@ -25,6 +25,7 @@ interface LeafRecord {
   folderPath: string
   frameCount: number
   sizeBytes: number
+  fileTypes: FileTypeInfo[]
 }
 
 interface WalkContext {
@@ -33,13 +34,30 @@ interface WalkContext {
 }
 
 function scanLeaf(dirPath: string, context: WalkContext, warnings: WarningInfo[]): LeafRecord {
-  const entries = listDirEntries(dirPath)
-  const fitFiles = entries.filter((e) => e.isFile() && isFitFile(e.name))
-  const frameCount = fitFiles.length
-  const sizeBytes = fitFiles.reduce((sum, f) => sum + fs.statSync(path.join(dirPath, f.name)).size, 0)
+  const files = listDirEntries(dirPath).filter((e) => e.isFile())
 
-  if (frameCount === 0) {
-    warnings.push({ path: dirPath, message: 'No .fit/.fits frames found in this session folder' })
+  // Every format present is catalogued, but only frame formats count towards frames.
+  const byExtension = new Map<string, FileTypeInfo>()
+  let frameCount = 0
+  let sizeBytes = 0
+  for (const file of files) {
+    const extension = fileExtension(file.name) || '(none)'
+    const fileSize = fs.statSync(path.join(dirPath, file.name)).size
+    sizeBytes += fileSize
+    if (isFrameExtension(extension)) frameCount += 1
+
+    const existing = byExtension.get(extension)
+    if (existing) {
+      existing.count += 1
+      existing.sizeBytes += fileSize
+    } else {
+      byExtension.set(extension, { extension, count: 1, sizeBytes: fileSize })
+    }
+  }
+  const fileTypes = mergeFileTypes([[...byExtension.values()]])
+
+  if (files.length === 0) {
+    warnings.push({ path: dirPath, message: 'No files found in this session folder' })
   }
 
   const { object, type, date, exposure } = context.values
@@ -54,6 +72,7 @@ function scanLeaf(dirPath: string, context: WalkContext, warnings: WarningInfo[]
     folderPath: dirPath,
     frameCount,
     sizeBytes,
+    fileTypes,
   }
 }
 
@@ -154,6 +173,7 @@ export function scanRoot(
       frameCount: leaf.frameCount,
       folderPath: leaf.folderPath,
       sizeBytes: leaf.sizeBytes,
+      fileTypes: leaf.fileTypes,
     })
     objectEntry.frameTypes.set(leaf.type, sessions)
   }
@@ -164,7 +184,8 @@ export function scanRoot(
       const totalFrames = sessions.reduce((sum, s) => sum + s.frameCount, 0)
       const totalExposureSeconds = sessions.reduce((sum, s) => sum + s.frameCount * s.captureSeconds, 0)
       const totalSizeBytes = sessions.reduce((sum, s) => sum + s.sizeBytes, 0)
-      return { name: typeName, sessions, totalFrames, totalExposureSeconds, totalSizeBytes }
+      const fileTypes = mergeFileTypes(sessions.map((s) => s.fileTypes))
+      return { name: typeName, sessions, totalFrames, totalExposureSeconds, totalSizeBytes, fileTypes }
     })
 
     const { catalog, catalogNumber } = resolveCatalog(name)

@@ -1,9 +1,11 @@
 import type { ObjectInfo, WarningInfo } from '../../electron/shared-types'
 import { formatMetrics, type MetricKey } from '../lib/columns'
+import { useCollapsedCatalogs } from '../lib/collapsedCatalogs'
 import type { ObjectGroup } from '../lib/groupObjects'
 import type { AltitudeListMetric, MoonListMetric, NightMoonTrackSample } from '../lib/moonSeparation'
+import type { ObjectTypeColorKey } from '../lib/objectTypeColor'
 import type { SeestarModel } from '../lib/seestarModel'
-import type { ObservingLocation } from './MoonPanel'
+import type { ObservingLocation } from '../lib/observingLocation'
 import { ObjectCard } from './ObjectCard'
 import { ObjectListTable } from './ObjectListTable'
 import type { ViewMode } from './ViewToggle'
@@ -33,6 +35,10 @@ interface ObjectGroupsGridProps {
   frameFitMosaicThresholdPercent: number
   frameFitTooBigThresholdPercent: number
   imagesPath: string
+  objectTypeColorsEnabled: boolean
+  objectTypeColors: Record<string, ObjectTypeColorKey>
+  /** localStorage key under which this list remembers its collapsed catalog groups. */
+  collapseStorageKey: string
 }
 
 /**
@@ -66,7 +72,12 @@ export function ObjectGroupsGrid({
   frameFitMosaicThresholdPercent,
   frameFitTooBigThresholdPercent,
   imagesPath,
+  objectTypeColorsEnabled,
+  objectTypeColors,
+  collapseStorageKey,
 }: ObjectGroupsGridProps) {
+  const { collapsedCatalogs, toggleCatalog } = useCollapsedCatalogs(collapseStorageKey)
+
   return (
     <div className="space-y-10">
       {groups.map((group) => {
@@ -82,13 +93,27 @@ export function ObjectGroupsGrid({
           (sum, o) => sum + o.frameTypes.reduce((s, ft) => s + ft.totalSizeBytes, 0),
           0,
         )
+        const isCollapsed = collapsedCatalogs.has(group.catalog)
         return (
           <section key={group.catalog}>
-            <h2 className="mb-3 flex items-baseline gap-2 text-base font-semibold uppercase tracking-wide text-slate-400">
-              {group.catalog}
-              <span className="text-xs font-normal normal-case text-slate-600">({group.objects.length})</span>
+            <h2
+              className={`flex items-baseline gap-2 text-base font-semibold uppercase tracking-wide text-slate-300 ${
+                isCollapsed ? '' : 'mb-3'
+              }`}
+            >
+              <button
+                type="button"
+                onClick={() => toggleCatalog(group.catalog)}
+                aria-expanded={!isCollapsed}
+                title={isCollapsed ? `Expand ${group.catalog}` : `Collapse ${group.catalog}`}
+                className="flex items-baseline gap-2 rounded transition hover:text-slate-200"
+              >
+                <span className="text-[10px] leading-none text-slate-400">{isCollapsed ? '▶' : '▼'}</span>
+                {group.catalog}
+                <span className="text-xs font-normal normal-case text-slate-400">({group.objects.length})</span>
+              </button>
               {showTotal && (
-                <span className="ml-auto text-xs font-normal normal-case tabular-nums text-slate-600">
+                <span className="ml-auto text-xs font-normal normal-case tabular-nums text-slate-400">
                   {formatMetrics(
                     {
                       totalFrames: groupTotalFrames,
@@ -100,7 +125,7 @@ export function ObjectGroupsGrid({
                 </span>
               )}
             </h2>
-            {viewMode === 'card' ? (
+            {isCollapsed ? null : viewMode === 'card' ? (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {group.objects.map((object) => (
                   <ObjectCard
@@ -125,6 +150,8 @@ export function ObjectGroupsGrid({
                     frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}
                     frameFitMosaicThresholdPercent={frameFitMosaicThresholdPercent}
                     frameFitTooBigThresholdPercent={frameFitTooBigThresholdPercent}
+                    objectTypeColorsEnabled={objectTypeColorsEnabled}
+                    objectTypeColors={objectTypeColors}
                   />
                 ))}
               </div>

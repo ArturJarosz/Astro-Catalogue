@@ -12,7 +12,7 @@ import {
   type NightMoonTrackSample,
 } from '../lib/moonSeparation'
 import { getObjectCoordinates } from '../lib/objectCoordinates'
-import type { ObservingLocation } from './MoonPanel'
+import type { ObservingLocation } from '../lib/observingLocation'
 
 interface MoonSeparationCellsProps {
   object: ObjectInfo
@@ -67,8 +67,8 @@ export function MoonSeparationCells({
   if (!result) {
     return (
       <>
-        <td className="whitespace-nowrap px-3 py-2 text-right text-xs text-slate-600">–</td>
-        <td className="whitespace-nowrap px-3 py-2 text-right text-xs text-slate-600">–</td>
+        <td className="whitespace-nowrap px-3 py-2 text-right text-xs text-slate-400">–</td>
+        <td className="whitespace-nowrap px-3 py-2 text-right text-xs text-slate-400">–</td>
       </>
     )
   }
@@ -82,11 +82,11 @@ export function MoonSeparationCells({
     <>
       <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums">
         <div className={`font-medium ${textClassFor(moonRating)}`}>{Math.round(moonValueDeg)}°</div>
-        <div className="text-slate-500">{MOON_LIST_METRIC_LABELS[moonListMetric]}</div>
+        <div className="text-slate-400">{MOON_LIST_METRIC_LABELS[moonListMetric]}</div>
       </td>
       <td className="whitespace-nowrap px-3 py-2 text-right text-xs tabular-nums">
         <div className={`font-medium ${textClassFor(altitudeRating)}`}>{Math.round(altitudeValueDeg)}°</div>
-        <div className="text-slate-500">{ALTITUDE_LIST_METRIC_LABELS[altitudeListMetric]}</div>
+        <div className="text-slate-400">{ALTITUDE_LIST_METRIC_LABELS[altitudeListMetric]}</div>
       </td>
     </>
   )

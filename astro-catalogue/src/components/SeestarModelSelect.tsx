@@ -8,7 +8,7 @@ interface SeestarModelSelectProps {
 export function SeestarModelSelect({ value, onChange }: SeestarModelSelectProps) {
   return (
     <div className="flex shrink-0 items-center gap-1.5">
-      <label htmlFor="seestar-model-select" className="text-sm text-slate-400">
+      <label htmlFor="seestar-model-select" className="text-sm text-slate-300">
         Seestar
       </label>
       <select

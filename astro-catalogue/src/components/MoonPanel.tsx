@@ -1,10 +1,6 @@
 import { useMemo } from 'react'
 import { getUpcomingNights, moonPhaseEmoji } from '../lib/moon'
-
-export interface ObservingLocation {
-  latitude: number
-  longitude: number
-}
+import type { ObservingLocation } from '../lib/observingLocation'
 
 interface MoonPanelProps {
   location: ObservingLocation | null
@@ -31,10 +27,10 @@ export function MoonPanel({ location, nights: nightsShown, highlightTonight }: M
 
   return (
     <section className="rounded-xl border border-white/10 p-4">
-      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-400">Next Good Nights</h2>
+      <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-300">Next Good Nights</h2>
 
       {!location ? (
-        <p className="text-xs text-slate-500">
+        <p className="text-xs text-slate-400">
           Set your observing location in the Configuration tab to see moon illumination and rise/set times for the
           next {nightsShown} nights.
         </p>
@@ -42,7 +38,7 @@ export function MoonPanel({ location, nights: nightsShown, highlightTonight }: M
         <div className="overflow-x-auto">
           <table className="w-full text-left text-xs">
             <thead>
-              <tr className="text-slate-500">
+              <tr className="text-slate-400">
                 <th className="py-1 pr-4 font-medium">Night</th>
                 <th className="py-1 pr-4 font-medium">Phase</th>
                 <th className="py-1 pr-4 font-medium">Illum.</th>
@@ -52,7 +48,7 @@ export function MoonPanel({ location, nights: nightsShown, highlightTonight }: M
                 <th className="py-1 font-medium">Verdict</th>
               </tr>
             </thead>
-            <tbody className="text-slate-300">
+            <tbody className="text-slate-200">
               {nights.map((night, i) => {
                 const verdict = darknessLabel(night.illumination.fraction)
                 const isTonight = highlightTonight && i === 0
@@ -87,7 +83,7 @@ export function MoonPanel({ location, nights: nightsShown, highlightTonight }: M
               })}
             </tbody>
           </table>
-          <p className="mt-3 text-[11px] text-slate-600">
+          <p className="mt-3 text-[11px] text-slate-400">
             Approximate (within a few minutes) — computed locally from a low-precision lunar ephemeris, no network
             required.
           </p>
