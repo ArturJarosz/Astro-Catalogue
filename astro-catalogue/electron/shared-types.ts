@@ -54,12 +54,14 @@ export const DEFAULT_SEESTAR_SOURCE_DIR_WINDOWS = String.raw`\\seestar\EMMC Imag
 export const DEFAULT_SEESTAR_SOURCE_DIR_LINUX = '/mnt/seestar/EMMC Images/MyWorks'
 export const DEFAULT_SEESTAR_SOURCE_DIR = DEFAULT_SEESTAR_SOURCE_DIR_WINDOWS
 
+export const DEFAULT_SEESTAR_EXTENSIONS = ['fit']
+
 export interface SeestarSourceDirectory {
   name: string
   isSub: boolean
   totalFiles: number
-  jpgFiles: number
-  fitFiles: number
+  /** Lower-case extension (without the dot) → number of files in the directory. */
+  extensionCounts: Record<string, number>
 }
 
 export interface SeestarSubDirGroupSummary {
@@ -86,6 +88,7 @@ export interface SeestarCopyItem {
   destinationDirectory: string
   fileName: string
   objectName: string
+  extension: string
   type: string
   targetDate: string
   targetExposure: string
@@ -125,6 +128,7 @@ export interface AstroCatalogueApi {
     targetDirectory: string,
     directoryPattern: string,
     sourceDirectory: string,
+    extensions: string[],
   ) => Promise<SeestarCopyPlan>
   executeSeestarCopy: (items: SeestarCopyItem[], overwrite: boolean) => Promise<SeestarCopyResult>
   onSeestarCopyProgress: (callback: (progress: SeestarCopyProgress) => void) => () => void

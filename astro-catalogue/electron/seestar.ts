@@ -3,6 +3,7 @@ import path from 'node:path'
 import { applyDirectoryPattern } from './directory-pattern'
 import {
   DEFAULT_SEESTAR_DIRECTORY_PATTERN,
+  DEFAULT_SEESTAR_EXTENSIONS,
   DEFAULT_SEESTAR_SOURCE_DIR,
   type SeestarCopyItem,
   type SeestarCopyPlan,
@@ -16,7 +17,11 @@ export const SEESTAR_SOURCE_DIR = DEFAULT_SEESTAR_SOURCE_DIR
 
 const SUB_SUFFIX = '_sub'
 const FILE_PATTERN =
-  /^Light_.+_(?<exposure>\d+(?:\.\d+)?s)_(?<type>IRCUT|LP)_(?<date>\d{8})-\d{6}\.(?<extension>jpg|fit)$/i
+  /^Light_.+_(?<exposure>\d+(?:\.\d+)?s)_(?<type>IRCUT|LP)_(?<date>\d{8})-\d{6}\.(?<extension>[A-Za-z0-9]+)$/i
+
+function fileExtension(fileName: string): string {
+  return path.extname(fileName).replace(/^\./, '').toLowerCase()
+}
 
 function isSubDirectory(name: string): boolean {
   return name.toLowerCase().endsWith(SUB_SUFFIX)
@@ -43,15 +48,18 @@ export function listSourceDirectories(sourceDir: string = SEESTAR_SOURCE_DIR): S
     .map((entry) => {
       const dirPath = path.join(sourceDir, entry.name)
       const files = fs.readdirSync(dirPath, { withFileTypes: true }).filter((e) => e.isFile())
-      const jpgFiles = files.filter((f) => path.extname(f.name).toLowerCase() === '.jpg').length
-      const fitFiles = files.filter((f) => path.extname(f.name).toLowerCase() === '.fit').length
+      const extensionCounts: Record<string, number> = {}
+      for (const file of files) {
+        const extension = fileExtension(file.name)
+        if (!extension) continue
+        extensionCounts[extension] = (extensionCounts[extension] ?? 0) + 1
+      }
 
       return {
         name: entry.name,
         isSub: isSubDirectory(entry.name),
         totalFiles: files.length,
-        jpgFiles,
-        fitFiles,
+        extensionCounts,
       }
     })
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -62,7 +70,9 @@ export function buildCopyPlan(
   targetDirectory: string,
   directoryPattern: string = DEFAULT_SEESTAR_DIRECTORY_PATTERN,
   sourceDir: string = SEESTAR_SOURCE_DIR,
+  extensions: string[] = DEFAULT_SEESTAR_EXTENSIONS,
 ): SeestarCopyPlan {
+  const selectedExtensions = new Set(extensions.map((e) => e.replace(/^\./, '').toLowerCase()))
   const invalidFiles: SeestarInvalidFile[] = []
   const copyItems: SeestarCopyItem[] = []
   const subDirSummaries: SeestarSubDirSummary[] = []
@@ -90,7 +100,7 @@ export function buildCopyPlan(
       if (existingGroup) existingGroup.count += 1
       else groups.set(groupKey, { targetDate, type, targetExposure, extension, count: 1 })
 
-      if (extension !== 'fit') continue
+      if (!selectedExtensions.has(extension)) continue
 
       const destinationDirectory = path.join(
         targetDirectory,
@@ -109,6 +119,7 @@ export function buildCopyPlan(
         destinationDirectory,
         fileName: file.name,
         objectName,
+        extension,
         type,
         targetDate,
         targetExposure,

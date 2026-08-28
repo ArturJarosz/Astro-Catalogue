@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { DEFAULT_SEESTAR_EXTENSIONS } from '../../electron/shared-types'
 import type {
   SeestarCopyItem,
   SeestarCopyPlan,
@@ -8,6 +9,17 @@ import type {
 } from '../../electron/shared-types'
 import type { ConnectionStatus } from '../App'
 import { WarningsPanel } from './WarningsPanel'
+
+/** Total number of files per extension across the given directories, keyed by lower-case extension. */
+function countExtensions(dirs: SeestarSourceDirectory[]): Record<string, number> {
+  const counts: Record<string, number> = {}
+  for (const dir of dirs) {
+    for (const [extension, count] of Object.entries(dir.extensionCounts)) {
+      counts[extension] = (counts[extension] ?? 0) + count
+    }
+  }
+  return counts
+}
 
 interface SeestarViewProps {
   defaultTargetDirectory: string | null
@@ -30,6 +42,7 @@ export function SeestarView({
   const [dirsLoading, setDirsLoading] = useState(false)
   const [dirsError, setDirsError] = useState<string | null>(null)
   const [selectedSubDirs, setSelectedSubDirs] = useState<Set<string>>(new Set())
+  const [selectedExtensions, setSelectedExtensions] = useState<Set<string>>(new Set())
 
   const [targetDirectory, setTargetDirectory] = useState<string | null>(defaultTargetDirectory)
 
@@ -55,8 +68,13 @@ export function SeestarView({
     window.astroCatalogue
       .listSeestarDirectories(sourceDirectory)
       .then((dirs) => {
+        const subDirs = dirs.filter((d) => d.isSub)
         setDirectories(dirs)
-        setSelectedSubDirs(new Set(dirs.filter((d) => d.isSub).map((d) => d.name)))
+        setSelectedSubDirs(new Set(subDirs.map((d) => d.name)))
+
+        const available = Object.keys(countExtensions(subDirs))
+        const defaults = available.filter((ext) => DEFAULT_SEESTAR_EXTENSIONS.includes(ext))
+        setSelectedExtensions(new Set(defaults.length > 0 ? defaults : available))
       })
       .catch((e) => setDirsError(String(e)))
       .finally(() => setDirsLoading(false))
@@ -71,6 +89,32 @@ export function SeestarView({
       loadDirectories()
     }
   }, [status, directories, dirsLoading, loadDirectories])
+
+  /** Extensions offered for import: everything present in the selected sub directories. */
+  const availableExtensions = useMemo(() => {
+    const selected = (directories ?? []).filter((d) => selectedSubDirs.has(d.name))
+    return Object.entries(countExtensions(selected)).sort(([a], [b]) => a.localeCompare(b))
+  }, [directories, selectedSubDirs])
+
+  /** Columns of the directory table: every extension present anywhere in the source folder. */
+  const extensionColumns = useMemo(
+    () => Object.keys(countExtensions(directories ?? [])).sort((a, b) => a.localeCompare(b)),
+    [directories],
+  )
+
+  const importExtensions = useMemo(
+    () => availableExtensions.filter(([ext]) => selectedExtensions.has(ext)).map(([ext]) => ext),
+    [availableExtensions, selectedExtensions],
+  )
+
+  function toggleExtension(extension: string) {
+    setSelectedExtensions((prev) => {
+      const next = new Set(prev)
+      if (next.has(extension)) next.delete(extension)
+      else next.add(extension)
+      return next
+    })
+  }
 
   function toggleSubDir(name: string) {
     setSelectedSubDirs((prev) => {
@@ -87,12 +131,18 @@ export function SeestarView({
   }
 
   function buildPlan() {
-    if (!targetDirectory || selectedSubDirs.size === 0) return
+    if (!targetDirectory || selectedSubDirs.size === 0 || importExtensions.length === 0) return
     setPlanLoading(true)
     setPlanError(null)
     setCopyResult(null)
     window.astroCatalogue
-      .buildSeestarCopyPlan(Array.from(selectedSubDirs), targetDirectory, directoryPattern, sourceDirectory)
+      .buildSeestarCopyPlan(
+        Array.from(selectedSubDirs),
+        targetDirectory,
+        directoryPattern,
+        sourceDirectory,
+        importExtensions,
+      )
       .then(setPlan)
       .catch((e) => setPlanError(String(e)))
       .finally(() => setPlanLoading(false))
@@ -129,6 +179,7 @@ export function SeestarView({
           targetDirectory,
           directoryPattern,
           sourceDirectory,
+          importExtensions,
         )
         setPlan(refreshed)
       }
@@ -206,8 +257,11 @@ export function SeestarView({
                   <th className="w-8 py-1"></th>
                   <th className="py-1">Directory</th>
                   <th className="py-1 text-right">Files</th>
-                  <th className="py-1 text-right">JPG</th>
-                  <th className="py-1 text-right">FIT</th>
+                  {extensionColumns.map((ext) => (
+                    <th key={ext} className="py-1 text-right">
+                      {ext.toUpperCase()}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -227,12 +281,54 @@ export function SeestarView({
                       {!dir.isSub && <span className="ml-2 text-xs text-slate-600">(not a _sub folder)</span>}
                     </td>
                     <td className="py-1.5 text-right tabular-nums text-slate-400">{dir.totalFiles}</td>
-                    <td className="py-1.5 text-right tabular-nums text-slate-400">{dir.jpgFiles}</td>
-                    <td className="py-1.5 text-right tabular-nums text-slate-400">{dir.fitFiles}</td>
+                    {extensionColumns.map((ext) => (
+                      <td key={ext} className="py-1.5 text-right tabular-nums text-slate-400">
+                        {dir.extensionCounts[ext] ?? 0}
+                      </td>
+                    ))}
                   </tr>
                 ))}
               </tbody>
             </table>
+          </div>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-white/10 p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-slate-400">File types to import</h2>
+          {availableExtensions.length > 0 && (
+            <div className="flex items-center gap-3 text-xs text-slate-500">
+              <button
+                onClick={() => setSelectedExtensions(new Set(availableExtensions.map(([ext]) => ext)))}
+                className="underline hover:text-slate-300"
+              >
+                select all
+              </button>
+              <button onClick={() => setSelectedExtensions(new Set())} className="underline hover:text-slate-300">
+                select none
+              </button>
+            </div>
+          )}
+        </div>
+
+        {availableExtensions.length === 0 ? (
+          <p className="text-sm text-slate-500">
+            {selectedSubDirs.size === 0 ? 'Select a source directory first.' : 'No files found in the selected directories.'}
+          </p>
+        ) : (
+          <div className="flex flex-wrap gap-x-6 gap-y-2">
+            {availableExtensions.map(([extension, count]) => (
+              <label key={extension} className="flex items-center gap-2 text-sm text-slate-300">
+                <input
+                  type="checkbox"
+                  checked={selectedExtensions.has(extension)}
+                  onChange={() => toggleExtension(extension)}
+                />
+                <span className="font-mono">.{extension}</span>
+                <span className="text-xs text-slate-500">({count})</span>
+              </label>
+            ))}
           </div>
         )}
       </section>
@@ -255,7 +351,7 @@ export function SeestarView({
       <div>
         <button
           onClick={buildPlan}
-          disabled={!targetDirectory || selectedSubDirs.size === 0 || planLoading}
+          disabled={!targetDirectory || selectedSubDirs.size === 0 || importExtensions.length === 0 || planLoading}
           className="rounded-lg bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 transition hover:from-sky-400 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
         >
           {planLoading ? 'Building plan…' : 'Build copy plan'}
@@ -299,9 +395,11 @@ export function SeestarView({
           )}
 
           <div className="border-t border-white/10 pt-4">
-            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">Copy plan (.fit files)</h3>
+            <h3 className="mb-2 text-sm font-semibold uppercase tracking-wide text-slate-400">
+              Copy plan ({importExtensions.map((ext) => `.${ext}`).join(', ')})
+            </h3>
             {destinationGroups.length === 0 ? (
-              <p className="text-sm text-slate-500">No new fit files to copy.</p>
+              <p className="text-sm text-slate-500">No new files to copy.</p>
             ) : (
               <ul className="text-xs text-slate-400">
                 {destinationGroups.map((g) => (
@@ -313,7 +411,7 @@ export function SeestarView({
             )}
             {existingCount > 0 && !overwrite && (
               <p className="mt-2 text-xs text-slate-500">
-                {existingCount} fit file(s) already exist in the target and will be skipped.
+                {existingCount} file(s) already exist in the target and will be skipped.
               </p>
             )}
 
@@ -327,7 +425,7 @@ export function SeestarView({
               disabled={copying || newItems.length === 0}
               className="mt-3 rounded-lg bg-gradient-to-r from-sky-500 to-indigo-500 px-4 py-2 text-sm font-medium text-white shadow-lg shadow-indigo-500/20 transition hover:from-sky-400 hover:to-indigo-400 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {copying ? 'Copying…' : `Copy ${newItems.length} fit file(s)`}
+              {copying ? 'Copying…' : `Copy ${newItems.length} file(s)`}
             </button>
 
             {copying && (
@@ -349,7 +447,7 @@ export function SeestarView({
             )}
             {copyError && <p className="mt-2 text-sm text-red-300">{copyError}</p>}
             {copyResult !== null && !copying && (
-              <p className="mt-2 text-sm text-emerald-300">Copied {copyResult} fit file(s).</p>
+              <p className="mt-2 text-sm text-emerald-300">Copied {copyResult} file(s).</p>
             )}
           </div>
         </section>

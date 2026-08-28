@@ -121,8 +121,9 @@ ipcMain.handle(
     targetDirectory: string,
     directoryPattern: string,
     sourceDirectory: string = SEESTAR_SOURCE_DIR,
+    extensions?: string[],
   ) => {
-    return buildCopyPlan(subDirNames, targetDirectory, directoryPattern, sourceDirectory)
+    return buildCopyPlan(subDirNames, targetDirectory, directoryPattern, sourceDirectory, extensions)
   },
 )
 
