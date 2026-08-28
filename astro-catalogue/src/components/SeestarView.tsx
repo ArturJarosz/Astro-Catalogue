@@ -68,7 +68,7 @@ export function SeestarView({
     window.astroCatalogue
       .listSeestarDirectories(sourceDirectory)
       .then((dirs) => {
-        const subDirs = dirs.filter((d) => d.isSub)
+        const subDirs = dirs.filter((d) => d.isImportable)
         setDirectories(dirs)
         setSelectedSubDirs(new Set(subDirs.map((d) => d.name)))
 
@@ -268,7 +268,7 @@ export function SeestarView({
                 {directories.map((dir) => (
                   <tr key={dir.name} className="border-t border-white/5">
                     <td className="py-1.5">
-                      {dir.isSub && (
+                      {dir.isImportable && (
                         <input
                           type="checkbox"
                           checked={selectedSubDirs.has(dir.name)}
@@ -278,7 +278,9 @@ export function SeestarView({
                     </td>
                     <td className="py-1.5 text-slate-200">
                       {dir.name}
-                      {!dir.isSub && <span className="ml-2 text-xs text-slate-400">(not a _sub folder)</span>}
+                      {!dir.isImportable && (
+                        <span className="ml-2 text-xs text-slate-400">(not a _sub or _video folder)</span>
+                      )}
                     </td>
                     <td className="py-1.5 text-right tabular-nums text-slate-300">{dir.totalFiles}</td>
                     {extensionColumns.map((ext) => (

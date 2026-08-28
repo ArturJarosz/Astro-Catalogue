@@ -69,7 +69,8 @@ export const DEFAULT_SEESTAR_EXTENSIONS = ['fit']
 
 export interface SeestarSourceDirectory {
   name: string
-  isSub: boolean
+  /** True for a "<Object>_sub" (light frames) or "<Target>_video" (Sun/Moon/planet clips) folder. */
+  isImportable: boolean
   totalFiles: number
   /** Lower-case extension (without the dot) → number of files in the directory. */
   extensionCounts: Record<string, number>

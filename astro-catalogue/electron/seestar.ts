@@ -16,6 +16,7 @@ import {
 export const SEESTAR_SOURCE_DIR = DEFAULT_SEESTAR_SOURCE_DIR
 
 const SUB_SUFFIX = '_sub'
+const VIDEO_SUFFIX = '_video'
 const FILE_PATTERN =
   /^Light_.+_(?<exposure>\d+(?:\.\d+)?s)_(?<type>IRCUT|LP)_(?<date>\d{8})-\d{6}\.(?<extension>[A-Za-z0-9]+)$/i
 
@@ -62,12 +63,18 @@ function fileExtension(fileName: string): string {
   return path.extname(fileName).replace(/^\./, '').toLowerCase()
 }
 
-function isSubDirectory(name: string): boolean {
-  return name.toLowerCase().endsWith(SUB_SUFFIX)
+// Deep-sky light frames live in a "<Object>_sub" folder; Sun/Moon/planetary video clips
+// live in a "<Target>_video" folder instead — both are valid import sources.
+function isImportableSourceDirectory(name: string): boolean {
+  const lower = name.toLowerCase()
+  return lower.endsWith(SUB_SUFFIX) || lower.endsWith(VIDEO_SUFFIX)
 }
 
 function objectNameFromSubDirectory(name: string): string {
-  return isSubDirectory(name) ? name.slice(0, -SUB_SUFFIX.length) : name
+  const lower = name.toLowerCase()
+  if (lower.endsWith(SUB_SUFFIX)) return name.slice(0, -SUB_SUFFIX.length)
+  if (lower.endsWith(VIDEO_SUFFIX)) return name.slice(0, -VIDEO_SUFFIX.length)
+  return name
 }
 
 function formatTargetDate(date: string): string {
@@ -96,7 +103,7 @@ export function listSourceDirectories(sourceDir: string = SEESTAR_SOURCE_DIR): S
 
       return {
         name: entry.name,
-        isSub: isSubDirectory(entry.name),
+        isImportable: isImportableSourceDirectory(entry.name),
         totalFiles: files.length,
         extensionCounts,
       }
