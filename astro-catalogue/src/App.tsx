@@ -198,6 +198,15 @@ export default function App() {
     localStorage.setItem('seestarSourceDirectory', directory)
   }
 
+  const [autoReanalyzeAfterImport, setAutoReanalyzeAfterImport] = useState<boolean>(
+    () => (localStorage.getItem('autoReanalyzeAfterImport') ?? 'true') === 'true',
+  )
+
+  function handleAutoReanalyzeAfterImportChange(enabled: boolean) {
+    setAutoReanalyzeAfterImport(enabled)
+    localStorage.setItem('autoReanalyzeAfterImport', String(enabled))
+  }
+
   const [objectImagesPath, setObjectImagesPath] = useState<string>(
     () => localStorage.getItem('objectImagesPath') ?? '',
   )
@@ -445,6 +454,28 @@ export default function App() {
     }
   }
 
+  /** Re-analyses just the given top-level folders of the root, e.g. after an import. */
+  async function handleAnalyzeDirectories(topLevelNames: string[]) {
+    if (!catalogue?.rootPath || topLevelNames.length === 0) return
+    setScanning(true)
+    setError(null)
+    setScanProgressLabel('Scanning imported objects…')
+    try {
+      const result = await window.astroCatalogue.analyzeDirectories(
+        catalogue.rootPath,
+        directoryPattern,
+        topLevelNames,
+      )
+      setCatalogue(result)
+    } catch (e) {
+      setError(String(e))
+      throw e
+    } finally {
+      setScanning(false)
+      setScanProgressLabel(null)
+    }
+  }
+
   const groups = catalogue ? groupObjectsByCatalog(catalogue.objects) : []
   const effectiveSelectedCatalog =
     selectedCatalog !== null && groups.some((g) => g.catalog === selectedCatalog) ? selectedCatalog : null
@@ -535,6 +566,9 @@ export default function App() {
             onCheckConnection={checkSeestarConnection}
             warnings={catalogue?.warnings ?? []}
             sourceDirectory={seestarSourceDirectory}
+            catalogueRootPath={catalogue?.rootPath ?? null}
+            reanalyzeAfterImportDefault={autoReanalyzeAfterImport}
+            onImportedDirectories={handleAnalyzeDirectories}
           />
         ) : activeSection === 'configuration' ? (
           <ConfigurationView
@@ -569,6 +603,8 @@ export default function App() {
             onSeestarSourceDirectoryChange={handleSeestarSourceDirectoryChange}
             objectImagesPath={objectImagesPath}
             onObjectImagesPathChange={handleObjectImagesPathChange}
+            autoReanalyzeAfterImport={autoReanalyzeAfterImport}
+            onAutoReanalyzeAfterImportChange={handleAutoReanalyzeAfterImportChange}
             frameFitRatingEnabled={frameFitRatingEnabled}
             onFrameFitRatingEnabledChange={handleFrameFitRatingEnabledChange}
             frameFitGoodThresholdPercent={frameFitGoodThresholdPercent}

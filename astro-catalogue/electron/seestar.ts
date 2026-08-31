@@ -7,6 +7,7 @@ import {
   DEFAULT_SEESTAR_SOURCE_DIR,
   type SeestarCopyItem,
   type SeestarCopyPlan,
+  type SeestarCopyResult,
   type SeestarInvalidFile,
   type SeestarSourceDirectory,
   type SeestarSubDirGroupSummary,
@@ -140,11 +141,26 @@ export function buildCopyPlan(
   return { subDirSummaries, invalidFiles, copyItems }
 }
 
+/**
+ * Top-level folder names under `targetDirectory` that the given destination directories live in —
+ * the unit a partial re-analysis works on. Destinations outside the target directory are ignored.
+ */
+function topLevelNames(directories: Iterable<string>, targetDirectory: string): string[] {
+  const names = new Set<string>()
+  for (const dir of directories) {
+    const relative = path.relative(targetDirectory, dir)
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) continue
+    names.add(relative.split(path.sep)[0])
+  }
+  return Array.from(names).sort((a, b) => a.localeCompare(b))
+}
+
 export function executeCopy(
   items: SeestarCopyItem[],
   overwrite: boolean,
+  targetDirectory: string,
   onProgress?: (copied: number, total: number, fileName: string) => void,
-): number {
+): SeestarCopyResult {
   const toCopy = items.filter((item) => overwrite || !item.alreadyExists)
   const directories = new Set(toCopy.map((item) => item.destinationDirectory))
   for (const dir of directories) {
@@ -157,5 +173,5 @@ export function executeCopy(
     copied += 1
     onProgress?.(copied, toCopy.length, item.fileName)
   }
-  return copied
+  return { copiedCount: copied, importedTopLevelDirectories: topLevelNames(directories, targetDirectory) }
 }
