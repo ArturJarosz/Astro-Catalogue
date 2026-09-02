@@ -6,6 +6,7 @@ import { initDb, getLastRoot, saveCatalogue, loadCatalogue, updateCatalogueDirec
 import { scanRoot, scanDirectories } from './scanner'
 import { buildCopyPlan, executeCopy, listSourceDirectories, SEESTAR_SOURCE_DIR } from './seestar'
 import { buildMergePlan, executeMerge } from './merge'
+import { buildRenamePlan, executeRename } from './rename'
 import type { CurrentLocationResult, MergeMoveItem, ObjectSummary, SeestarCopyItem } from './shared-types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
@@ -167,6 +168,29 @@ ipcMain.handle(
   async (_event, items: MergeMoveItem[], sourceObjectPaths: string[]) => {
     return executeMerge(items, sourceObjectPaths, (progress) => {
       mainWindow?.webContents.send('merge-progress', progress)
+    })
+  },
+)
+
+ipcMain.handle(
+  'build-rename-plan',
+  async (
+    _event,
+    rootPath: string,
+    objectPath: string,
+    isMosaic: boolean,
+    newName: string,
+    directoryPattern: string,
+  ) => {
+    return buildRenamePlan(rootPath, objectPath, isMosaic, newName, directoryPattern)
+  },
+)
+
+ipcMain.handle(
+  'execute-rename',
+  async (_event, items: MergeMoveItem[], sourceObjectPaths: string[]) => {
+    return executeRename(items, sourceObjectPaths, (progress) => {
+      mainWindow?.webContents.send('rename-progress', progress)
     })
   },
 )

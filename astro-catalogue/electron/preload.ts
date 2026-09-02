@@ -66,6 +66,20 @@ const api: AstroCatalogueApi = {
     ipcRenderer.on('merge-progress', listener)
     return () => ipcRenderer.removeListener('merge-progress', listener)
   },
+  buildRenamePlan: (
+    rootPath: string,
+    objectPath: string,
+    isMosaic: boolean,
+    newName: string,
+    directoryPattern: string,
+  ) => ipcRenderer.invoke('build-rename-plan', rootPath, objectPath, isMosaic, newName, directoryPattern),
+  executeRename: (items: MergeMoveItem[], sourceObjectPaths: string[]) =>
+    ipcRenderer.invoke('execute-rename', items, sourceObjectPaths),
+  onRenameProgress: (callback: (progress: MergeProgress) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: MergeProgress) => callback(progress)
+    ipcRenderer.on('rename-progress', listener)
+    return () => ipcRenderer.removeListener('rename-progress', listener)
+  },
   getCurrentLocation: () => ipcRenderer.invoke('get-current-location'),
 }
 
