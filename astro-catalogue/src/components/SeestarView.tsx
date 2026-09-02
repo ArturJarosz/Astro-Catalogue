@@ -8,6 +8,7 @@ import type {
   WarningInfo,
 } from '../../electron/shared-types'
 import type { ConnectionStatus } from '../App'
+import { formatSize } from '../lib/format'
 import { WarningsPanel } from './WarningsPanel'
 
 /** Total number of files per extension across the given directories, keyed by lower-case extension. */
@@ -76,7 +77,7 @@ export function SeestarView({
     window.astroCatalogue
       .listSeestarDirectories(sourceDirectory)
       .then((dirs) => {
-        const subDirs = dirs.filter((d) => d.isSub)
+        const subDirs = dirs.filter((d) => d.isImportable)
         setDirectories(dirs)
         setSelectedSubDirs(new Set(subDirs.map((d) => d.name)))
 
@@ -290,7 +291,7 @@ export function SeestarView({
                 {directories.map((dir) => (
                   <tr key={dir.name} className="border-t border-white/5">
                     <td className="py-1.5">
-                      {dir.isSub && (
+                      {dir.isImportable && (
                         <input
                           type="checkbox"
                           checked={selectedSubDirs.has(dir.name)}
@@ -300,7 +301,9 @@ export function SeestarView({
                     </td>
                     <td className="py-1.5 text-slate-200">
                       {dir.name}
-                      {!dir.isSub && <span className="ml-2 text-xs text-slate-400">(not a _sub folder)</span>}
+                      {!dir.isImportable && (
+                        <span className="ml-2 text-xs text-slate-400">(not a _sub or _video folder)</span>
+                      )}
                     </td>
                     <td className="py-1.5 text-right tabular-nums text-slate-300">{dir.totalFiles}</td>
                     {extensionColumns.map((ext) => (
@@ -461,13 +464,16 @@ export function SeestarView({
                   <div
                     className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-all"
                     style={{
-                      width: copyProgress ? `${Math.round((copyProgress.copied / copyProgress.total) * 100)}%` : '0%',
+                      width:
+                        copyProgress && copyProgress.totalBytes > 0
+                          ? `${Math.round((copyProgress.copiedBytes / copyProgress.totalBytes) * 100)}%`
+                          : '0%',
                     }}
                   />
                 </div>
                 <p className="mt-1 text-xs text-slate-400">
                   {copyProgress
-                    ? `${copyProgress.copied} / ${copyProgress.total} — ${copyProgress.fileName}`
+                    ? `${formatSize(copyProgress.copiedBytes)} / ${formatSize(copyProgress.totalBytes)} · ${copyProgress.copiedFiles} / ${copyProgress.totalFiles} files — ${copyProgress.fileName}`
                     : 'Starting…'}
                 </p>
               </div>

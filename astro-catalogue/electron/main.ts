@@ -142,8 +142,8 @@ ipcMain.handle(
 ipcMain.handle(
   'execute-seestar-copy',
   async (_event, items: SeestarCopyItem[], overwrite: boolean, targetDirectory: string) => {
-    return executeCopy(items, overwrite, targetDirectory, (copied, total, fileName) => {
-      mainWindow?.webContents.send('seestar-copy-progress', { copied, total, fileName })
+    return executeCopy(items, overwrite, targetDirectory, (progress) => {
+      mainWindow?.webContents.send('seestar-copy-progress', progress)
     })
   },
 )

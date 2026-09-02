@@ -7,6 +7,7 @@ import {
   DEFAULT_SEESTAR_SOURCE_DIR,
   type SeestarCopyItem,
   type SeestarCopyPlan,
+  type SeestarCopyProgress,
   type SeestarCopyResult,
   type SeestarInvalidFile,
   type SeestarSourceDirectory,
@@ -17,19 +18,65 @@ import {
 export const SEESTAR_SOURCE_DIR = DEFAULT_SEESTAR_SOURCE_DIR
 
 const SUB_SUFFIX = '_sub'
+const VIDEO_SUFFIX = '_video'
 const FILE_PATTERN =
   /^Light_.+_(?<exposure>\d+(?:\.\d+)?s)_(?<type>IRCUT|LP)_(?<date>\d{8})-\d{6}\.(?<extension>[A-Za-z0-9]+)$/i
+
+// Sun/Moon/planetary captures save as one continuous video clip instead of individual light
+// frames, e.g. "2026-08-28-225936-Lunar-RAW.avi". These aren't per-frame exposures, so they
+// get a fixed "0s" placeholder for the {exposure} token — harmless, since video formats never
+// count towards frame/exposure totals (see file-types.ts) — and their target name (Lunar,
+// Solar, …) becomes {type}.
+const VIDEO_FILE_PATTERN =
+  /^(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})-\d{6}-(?<target>[A-Za-z0-9]+)-RAW\.(?<extension>[A-Za-z0-9]+)$/i
+
+interface MatchedFile {
+  type: string
+  extension: string
+  targetDate: string
+  targetExposure: string
+}
+
+function matchFileName(fileName: string): MatchedFile | null {
+  const lightMatch = FILE_PATTERN.exec(fileName)
+  if (lightMatch?.groups) {
+    return {
+      type: lightMatch.groups.type.toUpperCase(),
+      extension: lightMatch.groups.extension.toLowerCase(),
+      targetDate: formatTargetDate(lightMatch.groups.date),
+      targetExposure: formatTargetExposure(lightMatch.groups.exposure),
+    }
+  }
+
+  const videoMatch = VIDEO_FILE_PATTERN.exec(fileName)
+  if (videoMatch?.groups) {
+    return {
+      type: videoMatch.groups.target,
+      extension: videoMatch.groups.extension.toLowerCase(),
+      targetDate: formatTargetDate(`${videoMatch.groups.year}${videoMatch.groups.month}${videoMatch.groups.day}`),
+      targetExposure: '0s',
+    }
+  }
+
+  return null
+}
 
 function fileExtension(fileName: string): string {
   return path.extname(fileName).replace(/^\./, '').toLowerCase()
 }
 
-function isSubDirectory(name: string): boolean {
-  return name.toLowerCase().endsWith(SUB_SUFFIX)
+// Deep-sky light frames live in a "<Object>_sub" folder; Sun/Moon/planetary video clips
+// live in a "<Target>_video" folder instead — both are valid import sources.
+function isImportableSourceDirectory(name: string): boolean {
+  const lower = name.toLowerCase()
+  return lower.endsWith(SUB_SUFFIX) || lower.endsWith(VIDEO_SUFFIX)
 }
 
 function objectNameFromSubDirectory(name: string): string {
-  return isSubDirectory(name) ? name.slice(0, -SUB_SUFFIX.length) : name
+  const lower = name.toLowerCase()
+  if (lower.endsWith(SUB_SUFFIX)) return name.slice(0, -SUB_SUFFIX.length)
+  if (lower.endsWith(VIDEO_SUFFIX)) return name.slice(0, -VIDEO_SUFFIX.length)
+  return name
 }
 
 function formatTargetDate(date: string): string {
@@ -58,7 +105,7 @@ export function listSourceDirectories(sourceDir: string = SEESTAR_SOURCE_DIR): S
 
       return {
         name: entry.name,
-        isSub: isSubDirectory(entry.name),
+        isImportable: isImportableSourceDirectory(entry.name),
         totalFiles: files.length,
         extensionCounts,
       }
@@ -85,16 +132,13 @@ export function buildCopyPlan(
     const groups = new Map<string, SeestarSubDirGroupSummary>()
 
     for (const file of files) {
-      const match = FILE_PATTERN.exec(file.name)
-      if (!match?.groups) {
+      const match = matchFileName(file.name)
+      if (!match) {
         invalidFiles.push({ subDirectory: subDirName, fileName: file.name })
         continue
       }
 
-      const type = match.groups.type.toUpperCase()
-      const extension = match.groups.extension.toLowerCase()
-      const targetDate = formatTargetDate(match.groups.date)
-      const targetExposure = formatTargetExposure(match.groups.exposure)
+      const { type, extension, targetDate, targetExposure } = match
 
       const groupKey = `${targetDate}|${type}|${targetExposure}|${extension}`
       const existingGroup = groups.get(groupKey)
@@ -113,9 +157,10 @@ export function buildCopyPlan(
         }),
       )
       const destinationPath = path.join(destinationDirectory, file.name)
+      const sourcePath = path.join(subDirPath, file.name)
 
       copyItems.push({
-        sourcePath: path.join(subDirPath, file.name),
+        sourcePath,
         destinationPath,
         destinationDirectory,
         fileName: file.name,
@@ -125,6 +170,7 @@ export function buildCopyPlan(
         targetDate,
         targetExposure,
         alreadyExists: fs.existsSync(destinationPath),
+        sizeBytes: fs.statSync(sourcePath).size,
       })
     }
 
@@ -155,23 +201,56 @@ function topLevelNames(directories: Iterable<string>, targetDirectory: string): 
   return Array.from(names).sort((a, b) => a.localeCompare(b))
 }
 
-export function executeCopy(
+const PROGRESS_THROTTLE_MS = 150
+
+/** Copies one file via streams (not fs.copyFileSync) so large files yield to the event loop
+ * between chunks instead of blocking the whole main process — and IPC/UI — until done. */
+function copyFileStreaming(sourcePath: string, destinationPath: string, onChunk: (bytesRead: number) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const readStream = fs.createReadStream(sourcePath)
+    const writeStream = fs.createWriteStream(destinationPath)
+    readStream.on('data', (chunk) => onChunk(chunk.length))
+    readStream.on('error', reject)
+    writeStream.on('error', reject)
+    writeStream.on('finish', resolve)
+    readStream.pipe(writeStream)
+  })
+}
+
+export async function executeCopy(
   items: SeestarCopyItem[],
   overwrite: boolean,
   targetDirectory: string,
-  onProgress?: (copied: number, total: number, fileName: string) => void,
-): SeestarCopyResult {
+  onProgress?: (progress: SeestarCopyProgress) => void,
+): Promise<SeestarCopyResult> {
   const toCopy = items.filter((item) => overwrite || !item.alreadyExists)
   const directories = new Set(toCopy.map((item) => item.destinationDirectory))
   for (const dir of directories) {
     fs.mkdirSync(dir, { recursive: true })
   }
 
-  let copied = 0
-  for (const item of toCopy) {
-    fs.copyFileSync(item.sourcePath, item.destinationPath)
-    copied += 1
-    onProgress?.(copied, toCopy.length, item.fileName)
+  const totalFiles = toCopy.length
+  const totalBytes = toCopy.reduce((sum, item) => sum + item.sizeBytes, 0)
+  let copiedFiles = 0
+  let copiedBytesBeforeCurrentFile = 0
+  let lastEmitAt = 0
+
+  function emit(fileName: string, copiedBytes: number, force = false) {
+    const now = Date.now()
+    if (!force && now - lastEmitAt < PROGRESS_THROTTLE_MS) return
+    lastEmitAt = now
+    onProgress?.({ copiedFiles, totalFiles, copiedBytes, totalBytes, fileName })
   }
-  return { copiedCount: copied, importedTopLevelDirectories: topLevelNames(directories, targetDirectory) }
+
+  for (const item of toCopy) {
+    let fileBytesCopied = 0
+    await copyFileStreaming(item.sourcePath, item.destinationPath, (bytesRead) => {
+      fileBytesCopied += bytesRead
+      emit(item.fileName, copiedBytesBeforeCurrentFile + fileBytesCopied)
+    })
+    copiedBytesBeforeCurrentFile += item.sizeBytes
+    copiedFiles += 1
+    emit(item.fileName, copiedBytesBeforeCurrentFile, true)
+  }
+  return { copiedCount: copiedFiles, importedTopLevelDirectories: topLevelNames(directories, targetDirectory) }
 }
