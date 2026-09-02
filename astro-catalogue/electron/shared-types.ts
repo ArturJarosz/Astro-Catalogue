@@ -169,6 +169,30 @@ export interface MergeResult {
   skipped: { sourcePath: string; reason: string }[]
 }
 
+/** A merge plan for renaming one object, plus whether the new name already has a folder. */
+export interface RenamePlan extends MergePlan {
+  /** True when `<root>/<newFolderName>` already exists — the rename then behaves as a merge. */
+  targetExists: boolean
+  /** Destination top-level folder, e.g. "M 99" or "M 99_mosaic". */
+  newFolderName: string
+  /** The object folder being renamed, e.g. "M 31" or "M 31_mosaic". */
+  oldFolderName: string
+}
+
+const INVALID_OBJECT_NAME_CHARS = /[/\\:*?"<>|]/
+
+/**
+ * Validates a user-typed object (folder) name for rename. Returns an error message, or
+ * `null` when the name is usable. Pure — safe to import from the renderer.
+ */
+export function validateObjectName(name: string): string | null {
+  const trimmed = name.trim()
+  if (trimmed.length === 0) return 'Enter a name.'
+  if (trimmed === '.' || trimmed === '..') return 'Choose a different name.'
+  if (INVALID_OBJECT_NAME_CHARS.test(trimmed)) return 'Name cannot contain / \\ : * ? " < > |'
+  return null
+}
+
 export type CurrentLocationResult =
   | { ok: true; latitude: number; longitude: number; label: string | null }
   | { ok: false; error: string }
@@ -211,5 +235,14 @@ export interface AstroCatalogueApi {
   ) => Promise<MergePlan>
   executeMerge: (items: MergeMoveItem[], sourceObjectPaths: string[]) => Promise<MergeResult>
   onMergeProgress: (callback: (progress: MergeProgress) => void) => () => void
+  buildRenamePlan: (
+    rootPath: string,
+    objectPath: string,
+    isMosaic: boolean,
+    newName: string,
+    directoryPattern: string,
+  ) => Promise<RenamePlan>
+  executeRename: (items: MergeMoveItem[], sourceObjectPaths: string[]) => Promise<MergeResult>
+  onRenameProgress: (callback: (progress: MergeProgress) => void) => () => void
   getCurrentLocation: () => Promise<CurrentLocationResult>
 }

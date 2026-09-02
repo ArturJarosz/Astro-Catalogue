@@ -44,25 +44,39 @@ function renameForMainTarget(fileName: string, sourceName: string, mainName: str
   return fileName
 }
 
-export function buildMergePlan(
+/** One object folder to relocate, plus the whole-word name to swap out of its file names. */
+export interface RelocationSource {
+  /** Absolute path of the object folder whose files are moved. */
+  objectPath: string
+  /** Name looked for as a whole word in each file name and swapped for `mainNameForFiles`. */
+  sourceName: string
+}
+
+/**
+ * Core planner shared by "merge duplicate objects" and "rename object" (CLAUDE.md rule 1).
+ * Files from every source object folder are relocated into `mainFolderName`'s directory-pattern
+ * tree under the root. `mainFolderName` is the destination top-level folder (it may carry a
+ * `_mosaic` suffix and need not exist on disk yet); `mainNameForFiles` is the bare object name
+ * substituted into file names.
+ */
+export function buildRelocationPlan(
   rootPath: string,
-  mainObjectPath: string,
-  otherObjectPaths: string[],
+  mainFolderName: string,
+  mainNameForFiles: string,
+  sources: RelocationSource[],
   directoryPattern: string = DEFAULT_SEESTAR_DIRECTORY_PATTERN,
 ): MergePlan {
-  const mainName = topLevelName(rootPath, mainObjectPath)
   const items: MergeMoveItem[] = []
-  const affected = new Set<string>([mainName])
+  const affected = new Set<string>([mainFolderName])
 
-  for (const otherPath of otherObjectPaths) {
-    const sourceName = topLevelName(rootPath, otherPath)
-    affected.add(sourceName)
+  for (const source of sources) {
+    affected.add(topLevelName(rootPath, source.objectPath))
 
-    for (const leaf of collectObjectLeafFiles(otherPath, directoryPattern)) {
+    for (const leaf of collectObjectLeafFiles(source.objectPath, directoryPattern)) {
       const destinationDirectory = path.join(
         rootPath,
         ...applyDirectoryPattern(directoryPattern, {
-          object: mainName,
+          object: mainFolderName,
           type: leaf.type,
           date: leaf.date,
           exposure: leaf.exposure,
@@ -70,7 +84,7 @@ export function buildMergePlan(
       )
 
       for (const fileName of leaf.fileNames) {
-        const newFileName = renameForMainTarget(fileName, sourceName, mainName)
+        const newFileName = renameForMainTarget(fileName, source.sourceName, mainNameForFiles)
         const sourcePath = path.join(leaf.folderPath, fileName)
         const destinationPath = path.join(destinationDirectory, newFileName)
         items.push({
@@ -79,7 +93,7 @@ export function buildMergePlan(
           destinationDirectory,
           fileName,
           newFileName,
-          sourceObject: sourceName,
+          sourceObject: source.sourceName,
           type: leaf.type,
           date: leaf.date,
           exposure: leaf.exposure,
@@ -91,11 +105,30 @@ export function buildMergePlan(
   }
 
   return {
-    mainObjectName: mainName,
+    mainObjectName: mainNameForFiles,
     items,
     collisionCount: items.filter((item) => item.alreadyExists).length,
     affectedTopLevelNames: Array.from(affected).sort((a, b) => a.localeCompare(b)),
   }
+}
+
+export function buildMergePlan(
+  rootPath: string,
+  mainObjectPath: string,
+  otherObjectPaths: string[],
+  directoryPattern: string = DEFAULT_SEESTAR_DIRECTORY_PATTERN,
+): MergePlan {
+  const mainName = topLevelName(rootPath, mainObjectPath)
+  return buildRelocationPlan(
+    rootPath,
+    mainName,
+    mainName,
+    otherObjectPaths.map((otherPath) => ({
+      objectPath: otherPath,
+      sourceName: topLevelName(rootPath, otherPath),
+    })),
+    directoryPattern,
+  )
 }
 
 async function moveFile(sourcePath: string, destinationPath: string): Promise<void> {

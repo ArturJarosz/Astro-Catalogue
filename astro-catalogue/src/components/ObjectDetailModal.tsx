@@ -29,6 +29,7 @@ interface ObjectDetailModalProps {
   imagesPath: string
   objectTypeColorsEnabled: boolean
   objectTypeColors: Record<string, ObjectTypeColorKey>
+  onRename?: () => void
   onClose: () => void
 }
 
@@ -50,6 +51,7 @@ export function ObjectDetailModal({
   imagesPath,
   objectTypeColorsEnabled,
   objectTypeColors,
+  onRename,
   onClose,
 }: ObjectDetailModalProps) {
   const { imageUrl, summary, loading: loadingSummary } = useObjectImage(object, imagesPath, true)
@@ -157,13 +159,23 @@ export function ObjectDetailModal({
               </span>
             )}
           </div>
-          <button
-            onClick={onClose}
-            aria-label="Close"
-            className="rounded-md p-1 text-slate-300 transition hover:bg-white/10 hover:text-slate-200"
-          >
-            ✕
-          </button>
+          <div className="flex items-center gap-2">
+            {onRename && (
+              <button
+                onClick={onRename}
+                className="rounded-md border border-white/10 bg-white/5 px-2.5 py-1 text-xs font-medium text-slate-200 transition hover:bg-white/10"
+              >
+                Rename
+              </button>
+            )}
+            <button
+              onClick={onClose}
+              aria-label="Close"
+              className="rounded-md p-1 text-slate-300 transition hover:bg-white/10 hover:text-slate-200"
+            >
+              ✕
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-1 flex-col gap-6 overflow-y-auto p-5 sm:flex-row">

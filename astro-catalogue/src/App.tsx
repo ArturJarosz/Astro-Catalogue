@@ -14,6 +14,7 @@ import { MergeTargetsModal } from './components/MergeTargetsModal'
 import { Header } from './components/Header'
 import { MoonPanel } from './components/MoonPanel'
 import { ObjectDetailModal } from './components/ObjectDetailModal'
+import { RenameObjectModal } from './components/RenameObjectModal'
 import { ObjectGroupsGrid } from './components/ObjectGroupsGrid'
 import { PropositionFilters } from './components/PropositionFilters'
 import { SeestarModelSelect } from './components/SeestarModelSelect'
@@ -49,6 +50,7 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [selectedCatalog, setSelectedCatalog] = useState<string | null>(null)
   const [selectedObject, setSelectedObject] = useState<ObjectInfo | null>(null)
+  const [renamingObject, setRenamingObject] = useState<ObjectInfo | null>(null)
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem('viewMode') as ViewMode | null) ?? 'card',
   )
@@ -902,7 +904,22 @@ export default function App() {
         />
       )}
 
-      {selectedObject && catalogue && (
+      {renamingObject && catalogue?.rootPath && (
+        <RenameObjectModal
+          key={renamingObject.path}
+          object={renamingObject}
+          rootPath={catalogue.rootPath}
+          directoryPattern={directoryPattern}
+          onRenamed={async (affectedTopLevelNames) => {
+            await handleAnalyzeDirectories(affectedTopLevelNames)
+            setRenamingObject(null)
+            setSelectedObject(null)
+          }}
+          onClose={() => setRenamingObject(null)}
+        />
+      )}
+
+      {selectedObject && catalogue && !renamingObject && (
         <ObjectDetailModal
           key={selectedObject.path}
           object={selectedObject}
@@ -917,6 +934,7 @@ export default function App() {
           imagesPath={objectImagesPath}
           objectTypeColorsEnabled={objectTypeColorsEnabled}
           objectTypeColors={objectTypeColors}
+          onRename={() => setRenamingObject(selectedObject)}
           onClose={() => setSelectedObject(null)}
         />
       )}
