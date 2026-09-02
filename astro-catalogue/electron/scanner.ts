@@ -240,3 +240,54 @@ export function scanDirectories(
 ): ScanResult {
   return runScan(rootPath, directoryPattern, new Set(topLevelNames), onProgress)
 }
+
+export interface ObjectLeafFiles {
+  type: string
+  date: string
+  exposure: string
+  folderPath: string
+  fileNames: string[]
+}
+
+/**
+ * Lists every leaf session folder under a single object directory and the files it holds,
+ * walking the same directory pattern the scanner validates against but starting below the
+ * `{object}` level. Used by the target-merge planner to relocate one object's files into
+ * another object's folder tree without re-implementing the pattern walk.
+ */
+export function collectObjectLeafFiles(objectDir: string, directoryPattern: string): ObjectLeafFiles[] {
+  const segments = parseDirectoryPattern(directoryPattern)
+  const objectSegmentIndex = segments.findIndex((segment) => segment.tokens.includes('object'))
+  const subSegments = objectSegmentIndex === -1 ? segments : segments.slice(objectSegmentIndex + 1)
+
+  const results: ObjectLeafFiles[] = []
+
+  function descend(dirPath: string, levelIndex: number, values: Partial<Record<PatternToken, string>>): void {
+    if (levelIndex === subSegments.length) {
+      const fileNames = listDirEntries(dirPath)
+        .filter((entry) => entry.isFile())
+        .map((entry) => entry.name)
+      results.push({
+        type: values.type ?? '',
+        date: values.date ?? '',
+        exposure: values.exposure ?? '',
+        folderPath: dirPath,
+        fileNames,
+      })
+      return
+    }
+
+    const segment = subSegments[levelIndex]
+    for (const entry of listDirEntries(dirPath)) {
+      if (!entry.isDirectory()) continue
+      const match = segment.regex.exec(entry.name)
+      if (!match?.groups) continue
+      const nextValues = { ...values }
+      for (const token of segment.tokens) nextValues[token] = match.groups[token]
+      descend(path.join(dirPath, entry.name), levelIndex + 1, nextValues)
+    }
+  }
+
+  if (fs.existsSync(objectDir)) descend(objectDir, 0, {})
+  return results
+}

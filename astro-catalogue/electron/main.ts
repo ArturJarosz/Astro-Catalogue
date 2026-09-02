@@ -5,7 +5,8 @@ import { fileURLToPath } from 'node:url'
 import { initDb, getLastRoot, saveCatalogue, loadCatalogue, updateCatalogueDirectories } from './db'
 import { scanRoot, scanDirectories } from './scanner'
 import { buildCopyPlan, executeCopy, listSourceDirectories, SEESTAR_SOURCE_DIR } from './seestar'
-import type { CurrentLocationResult, ObjectSummary, SeestarCopyItem } from './shared-types'
+import { buildMergePlan, executeMerge } from './merge'
+import type { CurrentLocationResult, MergeMoveItem, ObjectSummary, SeestarCopyItem } from './shared-types'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 
@@ -144,6 +145,28 @@ ipcMain.handle(
   async (_event, items: SeestarCopyItem[], overwrite: boolean, targetDirectory: string) => {
     return executeCopy(items, overwrite, targetDirectory, (progress) => {
       mainWindow?.webContents.send('seestar-copy-progress', progress)
+    })
+  },
+)
+
+ipcMain.handle(
+  'build-merge-plan',
+  async (
+    _event,
+    rootPath: string,
+    mainObjectPath: string,
+    otherObjectPaths: string[],
+    directoryPattern: string,
+  ) => {
+    return buildMergePlan(rootPath, mainObjectPath, otherObjectPaths, directoryPattern)
+  },
+)
+
+ipcMain.handle(
+  'execute-merge',
+  async (_event, items: MergeMoveItem[], sourceObjectPaths: string[]) => {
+    return executeMerge(items, sourceObjectPaths, (progress) => {
+      mainWindow?.webContents.send('merge-progress', progress)
     })
   },
 )

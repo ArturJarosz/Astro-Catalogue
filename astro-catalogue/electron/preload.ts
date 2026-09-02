@@ -1,5 +1,12 @@
 import { contextBridge, ipcRenderer } from 'electron'
-import type { AstroCatalogueApi, ScanProgress, SeestarCopyItem, SeestarCopyProgress } from './shared-types'
+import type {
+  AstroCatalogueApi,
+  MergeMoveItem,
+  MergeProgress,
+  ScanProgress,
+  SeestarCopyItem,
+  SeestarCopyProgress,
+} from './shared-types'
 
 const api: AstroCatalogueApi = {
   selectRootDir: () => ipcRenderer.invoke('select-root-dir'),
@@ -45,6 +52,19 @@ const api: AstroCatalogueApi = {
     const listener = (_event: Electron.IpcRendererEvent, progress: SeestarCopyProgress) => callback(progress)
     ipcRenderer.on('seestar-copy-progress', listener)
     return () => ipcRenderer.removeListener('seestar-copy-progress', listener)
+  },
+  buildMergePlan: (
+    rootPath: string,
+    mainObjectPath: string,
+    otherObjectPaths: string[],
+    directoryPattern: string,
+  ) => ipcRenderer.invoke('build-merge-plan', rootPath, mainObjectPath, otherObjectPaths, directoryPattern),
+  executeMerge: (items: MergeMoveItem[], sourceObjectPaths: string[]) =>
+    ipcRenderer.invoke('execute-merge', items, sourceObjectPaths),
+  onMergeProgress: (callback: (progress: MergeProgress) => void) => {
+    const listener = (_event: Electron.IpcRendererEvent, progress: MergeProgress) => callback(progress)
+    ipcRenderer.on('merge-progress', listener)
+    return () => ipcRenderer.removeListener('merge-progress', listener)
   },
   getCurrentLocation: () => ipcRenderer.invoke('get-current-location'),
 }
