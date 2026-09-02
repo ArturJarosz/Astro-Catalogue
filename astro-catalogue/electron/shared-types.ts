@@ -125,6 +125,8 @@ export interface SeestarCopyProgress {
 
 export interface SeestarCopyResult {
   copiedCount: number
+  /** Top-level folder names under the import target that received files. */
+  importedTopLevelDirectories: string[]
 }
 
 export type CurrentLocationResult =
@@ -134,6 +136,11 @@ export type CurrentLocationResult =
 export interface AstroCatalogueApi {
   selectRootDir: () => Promise<string | null>
   analyzeDirectory: (root: string, directoryPattern: string) => Promise<CatalogueData>
+  analyzeDirectories: (
+    root: string,
+    directoryPattern: string,
+    topLevelNames: string[],
+  ) => Promise<CatalogueData>
   getCatalogue: () => Promise<CatalogueData>
   onScanProgress: (callback: (progress: ScanProgress) => void) => () => void
   getObjectSummary: (name: string, catalog: string, catalogNumber: number | null) => Promise<ObjectSummary | null>
@@ -150,7 +157,11 @@ export interface AstroCatalogueApi {
     sourceDirectory: string,
     extensions: string[],
   ) => Promise<SeestarCopyPlan>
-  executeSeestarCopy: (items: SeestarCopyItem[], overwrite: boolean) => Promise<SeestarCopyResult>
+  executeSeestarCopy: (
+    items: SeestarCopyItem[],
+    overwrite: boolean,
+    targetDirectory: string,
+  ) => Promise<SeestarCopyResult>
   onSeestarCopyProgress: (callback: (progress: SeestarCopyProgress) => void) => () => void
   getCurrentLocation: () => Promise<CurrentLocationResult>
 }

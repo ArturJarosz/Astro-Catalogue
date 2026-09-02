@@ -59,6 +59,8 @@ interface ConfigurationViewProps {
   onFrameFitMosaicThresholdPercentChange: (percent: number) => void
   frameFitTooBigThresholdPercent: number
   onFrameFitTooBigThresholdPercentChange: (percent: number) => void
+  autoReanalyzeAfterImport: boolean
+  onAutoReanalyzeAfterImportChange: (enabled: boolean) => void
   objectTypeColorsEnabled: boolean
   onObjectTypeColorsEnabledChange: (enabled: boolean) => void
   objectTypeColors: Record<string, ObjectTypeColorKey>
@@ -137,6 +139,8 @@ export function ConfigurationView({
   onFrameFitMosaicThresholdPercentChange,
   frameFitTooBigThresholdPercent,
   onFrameFitTooBigThresholdPercentChange,
+  autoReanalyzeAfterImport,
+  onAutoReanalyzeAfterImportChange,
   objectTypeColorsEnabled,
   onObjectTypeColorsEnabledChange,
   objectTypeColors,
@@ -306,6 +310,24 @@ export function ConfigurationView({
           </p>
         )}
 
+      </section>
+
+      <section className="rounded-xl border border-white/10 p-4">
+        <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-300">After import</h2>
+        <p className="mb-3 text-xs text-slate-400">
+          Default state of the "Re-analyse imported objects" tick on the Seestar tab. Only the object folders that
+          received new files are re-scanned, so the catalogue is up to date without a full re-analysis.
+        </p>
+
+        <label className="flex items-center gap-2 text-xs text-slate-300">
+          <input
+            type="checkbox"
+            checked={autoReanalyzeAfterImport}
+            onChange={(e) => onAutoReanalyzeAfterImportChange(e.target.checked)}
+            className="h-3.5 w-3.5 rounded border-white/20 bg-white/5 accent-sky-500"
+          />
+          Re-analyse imported objects after an import
+        </label>
       </section>
 
       <section className="rounded-xl border border-white/10 p-4">

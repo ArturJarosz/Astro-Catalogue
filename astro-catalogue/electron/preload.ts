@@ -5,6 +5,8 @@ const api: AstroCatalogueApi = {
   selectRootDir: () => ipcRenderer.invoke('select-root-dir'),
   analyzeDirectory: (root: string, directoryPattern: string) =>
     ipcRenderer.invoke('analyze-directory', root, directoryPattern),
+  analyzeDirectories: (root: string, directoryPattern: string, topLevelNames: string[]) =>
+    ipcRenderer.invoke('analyze-directories', root, directoryPattern, topLevelNames),
   getCatalogue: () => ipcRenderer.invoke('get-catalogue'),
   onScanProgress: (callback: (progress: ScanProgress) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, progress: ScanProgress) => callback(progress)
@@ -37,8 +39,8 @@ const api: AstroCatalogueApi = {
       sourceDirectory,
       extensions,
     ),
-  executeSeestarCopy: (items: SeestarCopyItem[], overwrite: boolean) =>
-    ipcRenderer.invoke('execute-seestar-copy', items, overwrite),
+  executeSeestarCopy: (items: SeestarCopyItem[], overwrite: boolean, targetDirectory: string) =>
+    ipcRenderer.invoke('execute-seestar-copy', items, overwrite, targetDirectory),
   onSeestarCopyProgress: (callback: (progress: SeestarCopyProgress) => void) => {
     const listener = (_event: Electron.IpcRendererEvent, progress: SeestarCopyProgress) => callback(progress)
     ipcRenderer.on('seestar-copy-progress', listener)

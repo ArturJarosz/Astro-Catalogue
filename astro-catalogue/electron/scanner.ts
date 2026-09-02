@@ -84,6 +84,7 @@ function walk(
   warnings: WarningInfo[],
   leaves: LeafRecord[],
   onLeaf?: (leaf: LeafRecord) => void,
+  topLevelNames?: Set<string>,
 ): void {
   if (levelIndex === segments.length) {
     const leaf = scanLeaf(dirPath, context, warnings)
@@ -93,7 +94,9 @@ function walk(
   }
 
   const segment = segments[levelIndex]
-  const entries = listDirEntries(dirPath)
+  const allEntries = listDirEntries(dirPath)
+  // A partial scan only descends into the top-level directories it was given.
+  const entries = levelIndex === 0 && topLevelNames ? allEntries.filter((e) => topLevelNames.has(e.name)) : allEntries
 
   for (const entry of entries) {
     const entryPath = path.join(dirPath, entry.name)
@@ -120,7 +123,7 @@ function walk(
       objectPath: segment.tokens.includes('object') ? entryPath : context.objectPath,
     }
 
-    walk(entryPath, segments, levelIndex + 1, nextContext, warnings, leaves, onLeaf)
+    walk(entryPath, segments, levelIndex + 1, nextContext, warnings, leaves, onLeaf, topLevelNames)
   }
 }
 
@@ -129,11 +132,7 @@ export interface ScanResult {
   warnings: WarningInfo[]
 }
 
-export function scanRoot(
-  rootPath: string,
-  directoryPattern: string,
-  onProgress?: (currentPath: string, objectsScanned: number) => void,
-): ScanResult {
+function parseAndValidatePattern(directoryPattern: string): DirectoryPatternSegment[] {
   const segments = parseDirectoryPattern(directoryPattern)
   const presentTokens = new Set(segments.flatMap((s) => s.tokens))
   for (const token of REQUIRED_TOKENS) {
@@ -141,16 +140,10 @@ export function scanRoot(
       throw new Error(`Directory pattern must include {${token}} to scan the catalogue`)
     }
   }
+  return segments
+}
 
-  const warnings: WarningInfo[] = []
-  const leaves: LeafRecord[] = []
-  const objectsSeen = new Set<string>()
-
-  walk(rootPath, segments, 0, { values: {} }, warnings, leaves, (leaf) => {
-    objectsSeen.add(leaf.object)
-    onProgress?.(leaf.folderPath, objectsSeen.size)
-  })
-
+function buildObjects(leaves: LeafRecord[]): ObjectInfo[] {
   const objectsByPath = new Map<
     string,
     { name: string; isMosaic: boolean; path: string; frameTypes: Map<string, SessionInfo[]> }
@@ -194,6 +187,56 @@ export function scanRoot(
   })
 
   objects.sort((a, b) => a.name.localeCompare(b.name))
+  return objects
+}
 
-  return { objects, warnings }
+function runScan(
+  rootPath: string,
+  directoryPattern: string,
+  topLevelNames: Set<string> | undefined,
+  onProgress?: (currentPath: string, objectsScanned: number) => void,
+): ScanResult {
+  const segments = parseAndValidatePattern(directoryPattern)
+
+  const warnings: WarningInfo[] = []
+  const leaves: LeafRecord[] = []
+  const objectsSeen = new Set<string>()
+
+  walk(
+    rootPath,
+    segments,
+    0,
+    { values: {} },
+    warnings,
+    leaves,
+    (leaf) => {
+      objectsSeen.add(leaf.object)
+      onProgress?.(leaf.folderPath, objectsSeen.size)
+    },
+    topLevelNames,
+  )
+
+  return { objects: buildObjects(leaves), warnings }
+}
+
+export function scanRoot(
+  rootPath: string,
+  directoryPattern: string,
+  onProgress?: (currentPath: string, objectsScanned: number) => void,
+): ScanResult {
+  return runScan(rootPath, directoryPattern, undefined, onProgress)
+}
+
+/**
+ * Re-scans only the given top-level directories of the root (e.g. the object folders that just
+ * received imported files). Names that no longer exist on disk are simply skipped, so their
+ * objects disappear from the catalogue when the result is merged.
+ */
+export function scanDirectories(
+  rootPath: string,
+  directoryPattern: string,
+  topLevelNames: string[],
+  onProgress?: (currentPath: string, objectsScanned: number) => void,
+): ScanResult {
+  return runScan(rootPath, directoryPattern, new Set(topLevelNames), onProgress)
 }

@@ -12,6 +12,8 @@ export function initDb(): void {
   fs.mkdirSync(dataDir, { recursive: true })
   db = new DatabaseSync(path.join(dataDir, 'catalogue.db'))
   db.exec('PRAGMA journal_mode = WAL')
+  // Off by default in SQLite; without it the ON DELETE CASCADE below never fires.
+  db.exec('PRAGMA foreign_keys = ON')
 
   db.exec(`
     CREATE TABLE IF NOT EXISTS scan_meta (
@@ -69,6 +71,14 @@ export function initDb(): void {
     db.exec('ALTER TABLE objects ADD COLUMN catalog_number INTEGER')
   }
 
+  // Deletes made before foreign keys were enabled left child rows behind.
+  db.exec(`
+    DELETE FROM session_files WHERE session_id NOT IN (SELECT id FROM sessions);
+    DELETE FROM sessions WHERE frame_type_id NOT IN (SELECT id FROM frame_types);
+    DELETE FROM frame_types WHERE object_id NOT IN (SELECT id FROM objects);
+    DELETE FROM session_files WHERE session_id NOT IN (SELECT id FROM sessions);
+  `)
+
   const sessionColumns = db.prepare('PRAGMA table_info(sessions)').all() as { name: string }[]
   const sessionColumnNames = new Set(sessionColumns.map((c) => c.name))
   if (!sessionColumnNames.has('size_bytes')) {
@@ -83,57 +93,107 @@ export function getLastRoot(): string | null {
   return row?.root_path ?? null
 }
 
-export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings: WarningInfo[]): void {
-  const now = new Date().toISOString()
+function insertObjects(objects: ObjectInfo[]): void {
+  const insertObject = db.prepare(
+    'INSERT INTO objects (name, path, is_mosaic, catalog, catalog_number) VALUES (?, ?, ?, ?, ?)',
+  )
+  const insertFrameType = db.prepare('INSERT INTO frame_types (object_id, name) VALUES (?, ?)')
+  const insertSession = db.prepare(
+    'INSERT INTO sessions (frame_type_id, date, capture_seconds, frame_count, folder_path, size_bytes) VALUES (?, ?, ?, ?, ?, ?)',
+  )
+  const insertSessionFile = db.prepare(
+    'INSERT INTO session_files (session_id, extension, count, size_bytes) VALUES (?, ?, ?, ?)',
+  )
 
+  for (const obj of objects) {
+    const objResult = insertObject.run(obj.name, obj.path, obj.isMosaic ? 1 : 0, obj.catalog, obj.catalogNumber)
+    const objectId = Number(objResult.lastInsertRowid)
+    for (const ft of obj.frameTypes) {
+      const ftResult = insertFrameType.run(objectId, ft.name)
+      const frameTypeId = Number(ftResult.lastInsertRowid)
+      for (const session of ft.sessions) {
+        const sessionResult = insertSession.run(
+          frameTypeId,
+          session.date,
+          session.captureSeconds,
+          session.frameCount,
+          session.folderPath,
+          session.sizeBytes,
+        )
+        const sessionId = Number(sessionResult.lastInsertRowid)
+        for (const fileType of session.fileTypes) {
+          insertSessionFile.run(sessionId, fileType.extension, fileType.count, fileType.sizeBytes)
+        }
+      }
+    }
+  }
+}
+
+function insertWarnings(warnings: WarningInfo[]): void {
+  const insertWarning = db.prepare('INSERT INTO warnings (path, message) VALUES (?, ?)')
+  for (const warning of warnings) {
+    insertWarning.run(warning.path, warning.message)
+  }
+}
+
+function touchScanMeta(rootPath: string): void {
+  db.prepare(
+    `INSERT INTO scan_meta (id, root_path, last_scanned_at) VALUES (1, ?, ?)
+     ON CONFLICT(id) DO UPDATE SET root_path = excluded.root_path, last_scanned_at = excluded.last_scanned_at`,
+  ).run(rootPath, new Date().toISOString())
+}
+
+export function saveCatalogue(rootPath: string, objects: ObjectInfo[], warnings: WarningInfo[]): void {
   db.exec('BEGIN')
   try {
     db.prepare('DELETE FROM warnings').run()
     db.prepare('DELETE FROM objects').run()
 
-    const insertObject = db.prepare(
-      'INSERT INTO objects (name, path, is_mosaic, catalog, catalog_number) VALUES (?, ?, ?, ?, ?)',
-    )
-    const insertFrameType = db.prepare('INSERT INTO frame_types (object_id, name) VALUES (?, ?)')
-    const insertSession = db.prepare(
-      'INSERT INTO sessions (frame_type_id, date, capture_seconds, frame_count, folder_path, size_bytes) VALUES (?, ?, ?, ?, ?, ?)',
-    )
-    const insertSessionFile = db.prepare(
-      'INSERT INTO session_files (session_id, extension, count, size_bytes) VALUES (?, ?, ?, ?)',
-    )
-    const insertWarning = db.prepare('INSERT INTO warnings (path, message) VALUES (?, ?)')
+    insertObjects(objects)
+    insertWarnings(warnings)
+    touchScanMeta(rootPath)
 
-    for (const obj of objects) {
-      const objResult = insertObject.run(obj.name, obj.path, obj.isMosaic ? 1 : 0, obj.catalog, obj.catalogNumber)
-      const objectId = Number(objResult.lastInsertRowid)
-      for (const ft of obj.frameTypes) {
-        const ftResult = insertFrameType.run(objectId, ft.name)
-        const frameTypeId = Number(ftResult.lastInsertRowid)
-        for (const session of ft.sessions) {
-          const sessionResult = insertSession.run(
-            frameTypeId,
-            session.date,
-            session.captureSeconds,
-            session.frameCount,
-            session.folderPath,
-            session.sizeBytes,
-          )
-          const sessionId = Number(sessionResult.lastInsertRowid)
-          for (const fileType of session.fileTypes) {
-            insertSessionFile.run(sessionId, fileType.extension, fileType.count, fileType.sizeBytes)
-          }
-        }
-      }
+    db.exec('COMMIT')
+  } catch (err) {
+    db.exec('ROLLBACK')
+    throw err
+  }
+}
+
+/** True when `candidate` is `directory` itself or lives somewhere below it. */
+function isInsideDirectory(candidate: string, directory: string): boolean {
+  if (candidate === directory) return true
+  const prefix = directory.endsWith(path.sep) ? directory : directory + path.sep
+  return candidate.startsWith(prefix)
+}
+
+/**
+ * Replaces the catalogue content of the given directories only, leaving the rest untouched.
+ * Used after an import so just the touched object folders are re-analysed.
+ */
+export function updateCatalogueDirectories(
+  rootPath: string,
+  directories: string[],
+  objects: ObjectInfo[],
+  warnings: WarningInfo[],
+): void {
+  db.exec('BEGIN')
+  try {
+    const deleteObject = db.prepare('DELETE FROM objects WHERE id = ?')
+    const objectRows = db.prepare('SELECT id, path FROM objects').all() as { id: number; path: string }[]
+    for (const row of objectRows) {
+      if (directories.some((dir) => isInsideDirectory(row.path, dir))) deleteObject.run(row.id)
     }
 
-    for (const warning of warnings) {
-      insertWarning.run(warning.path, warning.message)
+    const deleteWarning = db.prepare('DELETE FROM warnings WHERE id = ?')
+    const warningRows = db.prepare('SELECT id, path FROM warnings').all() as { id: number; path: string }[]
+    for (const row of warningRows) {
+      if (directories.some((dir) => isInsideDirectory(row.path, dir))) deleteWarning.run(row.id)
     }
 
-    db.prepare(
-      `INSERT INTO scan_meta (id, root_path, last_scanned_at) VALUES (1, ?, ?)
-       ON CONFLICT(id) DO UPDATE SET root_path = excluded.root_path, last_scanned_at = excluded.last_scanned_at`,
-    ).run(rootPath, now)
+    insertObjects(objects)
+    insertWarnings(warnings)
+    touchScanMeta(rootPath)
 
     db.exec('COMMIT')
   } catch (err) {

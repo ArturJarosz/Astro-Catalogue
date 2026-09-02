@@ -2,8 +2,8 @@ import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { initDb, getLastRoot, saveCatalogue, loadCatalogue } from './db'
-import { scanRoot } from './scanner'
+import { initDb, getLastRoot, saveCatalogue, loadCatalogue, updateCatalogueDirectories } from './db'
+import { scanRoot, scanDirectories } from './scanner'
 import { buildCopyPlan, executeCopy, listSourceDirectories, SEESTAR_SOURCE_DIR } from './seestar'
 import type { CurrentLocationResult, ObjectSummary, SeestarCopyItem } from './shared-types'
 
@@ -53,6 +53,18 @@ ipcMain.handle('analyze-directory', async (_event, rootPath: string, directoryPa
   saveCatalogue(rootPath, objects, warnings)
   return loadCatalogue()
 })
+
+ipcMain.handle(
+  'analyze-directories',
+  async (_event, rootPath: string, directoryPattern: string, topLevelNames: string[]) => {
+    const { objects, warnings } = scanDirectories(rootPath, directoryPattern, topLevelNames, (currentPath, objectsScanned) => {
+      mainWindow?.webContents.send('scan-progress', { currentPath, objectsScanned })
+    })
+    const directories = topLevelNames.map((name) => path.join(rootPath, name))
+    updateCatalogueDirectories(rootPath, directories, objects, warnings)
+    return loadCatalogue()
+  },
+)
 
 ipcMain.handle('get-catalogue', async () => {
   const catalogue = loadCatalogue()
@@ -127,12 +139,14 @@ ipcMain.handle(
   },
 )
 
-ipcMain.handle('execute-seestar-copy', async (_event, items: SeestarCopyItem[], overwrite: boolean) => {
-  const copiedCount = await executeCopy(items, overwrite, (progress) => {
-    mainWindow?.webContents.send('seestar-copy-progress', progress)
-  })
-  return { copiedCount }
-})
+ipcMain.handle(
+  'execute-seestar-copy',
+  async (_event, items: SeestarCopyItem[], overwrite: boolean, targetDirectory: string) => {
+    return executeCopy(items, overwrite, targetDirectory, (progress) => {
+      mainWindow?.webContents.send('seestar-copy-progress', progress)
+    })
+  },
+)
 
 interface WikiSummary {
   title: string

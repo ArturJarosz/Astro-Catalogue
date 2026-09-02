@@ -29,6 +29,9 @@ interface SeestarViewProps {
   onCheckConnection: () => void
   warnings: WarningInfo[]
   sourceDirectory: string
+  catalogueRootPath: string | null
+  reanalyzeAfterImportDefault: boolean
+  onImportedDirectories: (topLevelNames: string[]) => Promise<void>
 }
 
 export function SeestarView({
@@ -38,6 +41,9 @@ export function SeestarView({
   onCheckConnection,
   warnings,
   sourceDirectory,
+  catalogueRootPath,
+  reanalyzeAfterImportDefault,
+  onImportedDirectories,
 }: SeestarViewProps) {
   const [directories, setDirectories] = useState<SeestarSourceDirectory[] | null>(null)
   const [dirsLoading, setDirsLoading] = useState(false)
@@ -56,6 +62,8 @@ export function SeestarView({
   const [copyProgress, setCopyProgress] = useState<SeestarCopyProgress | null>(null)
   const [copyResult, setCopyResult] = useState<number | null>(null)
   const [copyError, setCopyError] = useState<string | null>(null)
+  const [reanalyze, setReanalyze] = useState(reanalyzeAfterImportDefault)
+  const [reanalyzeNotice, setReanalyzeNotice] = useState<string | null>(null)
 
   useEffect(() => {
     return window.astroCatalogue.onSeestarCopyProgress(setCopyProgress)
@@ -167,22 +175,36 @@ export function SeestarView({
 
   async function runCopy() {
     if (newItems.length === 0) return
+    if (!targetDirectory) return
     setCopying(true)
     setCopyError(null)
     setCopyProgress(null)
+    setReanalyzeNotice(null)
     try {
       const items: SeestarCopyItem[] = plan?.copyItems ?? []
-      const result = await window.astroCatalogue.executeSeestarCopy(items, overwrite)
+      const result = await window.astroCatalogue.executeSeestarCopy(items, overwrite, targetDirectory)
       setCopyResult(result.copiedCount)
-      if (targetDirectory) {
-        const refreshed = await window.astroCatalogue.buildSeestarCopyPlan(
-          Array.from(selectedSubDirs),
-          targetDirectory,
-          directoryPattern,
-          sourceDirectory,
-          importExtensions,
-        )
-        setPlan(refreshed)
+      const refreshed = await window.astroCatalogue.buildSeestarCopyPlan(
+        Array.from(selectedSubDirs),
+        targetDirectory,
+        directoryPattern,
+        sourceDirectory,
+        importExtensions,
+      )
+      setPlan(refreshed)
+
+      if (reanalyze && result.importedTopLevelDirectories.length > 0) {
+        if (targetDirectory !== catalogueRootPath) {
+          setReanalyzeNotice(
+            'The target directory is not the catalogue root — the catalogue was not updated.',
+          )
+        } else {
+          try {
+            await onImportedDirectories(result.importedTopLevelDirectories)
+          } catch (e) {
+            setReanalyzeNotice(`Re-analysis of the imported objects failed: ${String(e)}`)
+          }
+        }
       }
     } catch (e) {
       setCopyError(String(e))
@@ -423,6 +445,11 @@ export function SeestarView({
               Overwrite existing files
             </label>
 
+            <label className="mt-2 flex items-center gap-2 text-sm text-slate-200">
+              <input type="checkbox" checked={reanalyze} onChange={(e) => setReanalyze(e.target.checked)} />
+              Re-analyse imported objects after the import
+            </label>
+
             <button
               onClick={runCopy}
               disabled={copying || newItems.length === 0}
@@ -455,6 +482,7 @@ export function SeestarView({
             {copyResult !== null && !copying && (
               <p className="mt-2 text-sm text-emerald-300">Copied {copyResult} file(s).</p>
             )}
+            {reanalyzeNotice && <p className="mt-2 text-sm text-amber-300">{reanalyzeNotice}</p>}
           </div>
         </section>
       )}

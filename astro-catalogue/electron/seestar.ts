@@ -8,6 +8,7 @@ import {
   type SeestarCopyItem,
   type SeestarCopyPlan,
   type SeestarCopyProgress,
+  type SeestarCopyResult,
   type SeestarInvalidFile,
   type SeestarSourceDirectory,
   type SeestarSubDirGroupSummary,
@@ -186,6 +187,20 @@ export function buildCopyPlan(
   return { subDirSummaries, invalidFiles, copyItems }
 }
 
+/**
+ * Top-level folder names under `targetDirectory` that the given destination directories live in —
+ * the unit a partial re-analysis works on. Destinations outside the target directory are ignored.
+ */
+function topLevelNames(directories: Iterable<string>, targetDirectory: string): string[] {
+  const names = new Set<string>()
+  for (const dir of directories) {
+    const relative = path.relative(targetDirectory, dir)
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) continue
+    names.add(relative.split(path.sep)[0])
+  }
+  return Array.from(names).sort((a, b) => a.localeCompare(b))
+}
+
 const PROGRESS_THROTTLE_MS = 150
 
 /** Copies one file via streams (not fs.copyFileSync) so large files yield to the event loop
@@ -205,8 +220,9 @@ function copyFileStreaming(sourcePath: string, destinationPath: string, onChunk:
 export async function executeCopy(
   items: SeestarCopyItem[],
   overwrite: boolean,
+  targetDirectory: string,
   onProgress?: (progress: SeestarCopyProgress) => void,
-): Promise<number> {
+): Promise<SeestarCopyResult> {
   const toCopy = items.filter((item) => overwrite || !item.alreadyExists)
   const directories = new Set(toCopy.map((item) => item.destinationDirectory))
   for (const dir of directories) {
@@ -236,5 +252,5 @@ export async function executeCopy(
     copiedFiles += 1
     emit(item.fileName, copiedBytesBeforeCurrentFile, true)
   }
-  return copiedFiles
+  return { copiedCount: copiedFiles, importedTopLevelDirectories: topLevelNames(directories, targetDirectory) }
 }
