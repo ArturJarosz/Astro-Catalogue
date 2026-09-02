@@ -9,6 +9,8 @@ import { AppNav, type AppSection } from './components/AppNav'
 import { CatalogueSummary } from './components/CatalogueSummary'
 import { ColumnFilter } from './components/ColumnFilter'
 import { ConfigurationView } from './components/ConfigurationView'
+import { DuplicateTargetsBanner } from './components/DuplicateTargetsBanner'
+import { MergeTargetsModal } from './components/MergeTargetsModal'
 import { Header } from './components/Header'
 import { MoonPanel } from './components/MoonPanel'
 import { ObjectDetailModal } from './components/ObjectDetailModal'
@@ -28,6 +30,7 @@ import {
   type MoonListMetric,
 } from './lib/moonSeparation'
 import { summarizeObjects } from './lib/catalogueSummary'
+import { findDuplicateTargetGroups } from './lib/duplicateTargets'
 import { DEEP_SKY_CATALOGS } from './lib/objectCoordinates'
 import { OBSERVING_LOCATION_STORAGE_KEY, type ObservingLocation } from './lib/observingLocation'
 import { FILTERABLE_OBJECT_TYPES } from './lib/objectType'
@@ -65,6 +68,36 @@ export default function App() {
     setDirectoryPattern(pattern)
     localStorage.setItem('seestarDirectoryPattern', pattern)
   }
+
+  // Folders the user has manually declared to be the same physical target (each entry is a
+  // list of object paths), for targets the coordinate match can't catch (custom "Other" names).
+  const [manualTargetLinks, setManualTargetLinks] = useState<string[][]>(() => {
+    try {
+      const stored = localStorage.getItem('manualTargetLinks')
+      return stored ? (JSON.parse(stored) as string[][]) : []
+    } catch {
+      return []
+    }
+  })
+
+  function persistManualTargetLinks(links: string[][]) {
+    setManualTargetLinks(links)
+    localStorage.setItem('manualTargetLinks', JSON.stringify(links))
+  }
+
+  function handleAddManualLink(paths: string[]) {
+    if (paths.length < 2) return
+    persistManualTargetLinks([...manualTargetLinks, paths])
+  }
+
+  function handleRemoveManualLink(index: number) {
+    persistManualTargetLinks(manualTargetLinks.filter((_, i) => i !== index))
+  }
+
+  const [mergeModalOpen, setMergeModalOpen] = useState(false)
+  const [dismissedDuplicatesKey, setDismissedDuplicatesKey] = useState<string | null>(
+    () => localStorage.getItem('dismissedDuplicatesKey'),
+  )
 
   const [observingLocation, setObservingLocation] = useState<ObservingLocation | null>(() => {
     const stored = localStorage.getItem(OBSERVING_LOCATION_STORAGE_KEY)
@@ -487,6 +520,18 @@ export default function App() {
   const effectiveSelectedFrameTypes = selectedFrameTypes ?? new Set(allFrameTypeNames)
   const isPlanning = activeSection === 'planning'
 
+  const duplicateGroups = useMemo(
+    () => (catalogue ? findDuplicateTargetGroups(catalogue.objects, manualTargetLinks) : []),
+    [catalogue, manualTargetLinks],
+  )
+  const duplicatesKey = duplicateGroups.map((group) => group.signature).join('~')
+  const showDuplicatesBanner = duplicateGroups.length > 0 && dismissedDuplicatesKey !== duplicatesKey
+
+  function dismissDuplicatesBanner() {
+    setDismissedDuplicatesKey(duplicatesKey)
+    localStorage.setItem('dismissedDuplicatesKey', duplicatesKey)
+  }
+
   // filteredGroups is rebuilt every render, so memoising on it would never hit.
   const catalogueTotals = summarizeObjects(filteredGroups.flatMap((group) => group.objects))
   const catalogueTotalsFiltered = effectiveSelectedCatalog !== null || nameFilter.trim() !== ''
@@ -642,6 +687,14 @@ export default function App() {
             <div className="mb-6 rounded-lg border border-red-400/30 bg-red-400/10 px-4 py-3 text-sm text-red-300">
               {error}
             </div>
+          )}
+
+          {!isPlanning && showDuplicatesBanner && (
+            <DuplicateTargetsBanner
+              groupCount={duplicateGroups.length}
+              onReview={() => setMergeModalOpen(true)}
+              onDismiss={dismissDuplicatesBanner}
+            />
           )}
 
           {catalogue && catalogue.objects.length > 0 && (
@@ -834,6 +887,20 @@ export default function App() {
         )}
         </div>
       </div>
+
+      {mergeModalOpen && catalogue?.rootPath && (
+        <MergeTargetsModal
+          groups={duplicateGroups}
+          rootPath={catalogue.rootPath}
+          directoryPattern={directoryPattern}
+          allObjects={catalogue.objects}
+          manualLinks={manualTargetLinks}
+          onAddManualLink={handleAddManualLink}
+          onRemoveManualLink={handleRemoveManualLink}
+          onMerged={handleAnalyzeDirectories}
+          onClose={() => setMergeModalOpen(false)}
+        />
+      )}
 
       {selectedObject && catalogue && (
         <ObjectDetailModal

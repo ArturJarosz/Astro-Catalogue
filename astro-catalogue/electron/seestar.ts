@@ -205,7 +205,7 @@ const PROGRESS_THROTTLE_MS = 150
 
 /** Copies one file via streams (not fs.copyFileSync) so large files yield to the event loop
  * between chunks instead of blocking the whole main process — and IPC/UI — until done. */
-function copyFileStreaming(sourcePath: string, destinationPath: string, onChunk: (bytesRead: number) => void) {
+export function copyFileStreaming(sourcePath: string, destinationPath: string, onChunk: (bytesRead: number) => void) {
   return new Promise<void>((resolve, reject) => {
     const readStream = fs.createReadStream(sourcePath)
     const writeStream = fs.createWriteStream(destinationPath)

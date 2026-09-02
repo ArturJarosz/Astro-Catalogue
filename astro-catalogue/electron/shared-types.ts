@@ -129,6 +129,46 @@ export interface SeestarCopyResult {
   importedTopLevelDirectories: string[]
 }
 
+/** One file to relocate when merging a duplicate target's folder into the chosen main folder. */
+export interface MergeMoveItem {
+  sourcePath: string
+  destinationPath: string
+  destinationDirectory: string
+  /** Original file name. */
+  fileName: string
+  /** File name after swapping the source target name for the main one (unchanged if it wasn't embedded). */
+  newFileName: string
+  /** Top-level folder name the file currently lives under. */
+  sourceObject: string
+  type: string
+  date: string
+  exposure: string
+  /** A file already sits at destinationPath — it will be skipped, not overwritten. */
+  alreadyExists: boolean
+  sizeBytes: number
+}
+
+export interface MergePlan {
+  mainObjectName: string
+  items: MergeMoveItem[]
+  collisionCount: number
+  /** Root-level folder names touched by the merge — the units to re-analyse afterwards. */
+  affectedTopLevelNames: string[]
+}
+
+export interface MergeProgress {
+  movedFiles: number
+  totalFiles: number
+  movedBytes: number
+  totalBytes: number
+  fileName: string
+}
+
+export interface MergeResult {
+  movedCount: number
+  skipped: { sourcePath: string; reason: string }[]
+}
+
 export type CurrentLocationResult =
   | { ok: true; latitude: number; longitude: number; label: string | null }
   | { ok: false; error: string }
@@ -163,5 +203,13 @@ export interface AstroCatalogueApi {
     targetDirectory: string,
   ) => Promise<SeestarCopyResult>
   onSeestarCopyProgress: (callback: (progress: SeestarCopyProgress) => void) => () => void
+  buildMergePlan: (
+    rootPath: string,
+    mainObjectPath: string,
+    otherObjectPaths: string[],
+    directoryPattern: string,
+  ) => Promise<MergePlan>
+  executeMerge: (items: MergeMoveItem[], sourceObjectPaths: string[]) => Promise<MergeResult>
+  onMergeProgress: (callback: (progress: MergeProgress) => void) => () => void
   getCurrentLocation: () => Promise<CurrentLocationResult>
 }
